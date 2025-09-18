@@ -23,32 +23,14 @@ const (
 	extractPath  = "/etc/caddy"
 )
 
-// init 函数在包加载时就执行文件解压
+// init 函数只注册命令
 func init() {
-	// 在模块初始化时就执行文件解压
-	if isFirstRun() {
-		fmt.Println("检测到首次运行，正在释出系统文件...")
-		if err := extractEmbeddedFiles(); err != nil {
-			fmt.Printf("警告: 释出系统文件失败: %v\n", err)
-		} else {
-			fmt.Println("成功释出系统文件到 /etc/caddy/")
-
-			// 解压成功后，设置安装脚本权限并提示用户
-			if err := runInstallScript(); err != nil {
-				fmt.Printf("警告: 无法指定安装脚本权限，请手动输入：chmod +x /etc/caddy/install.sh : %v\n", err)
-			} else {
-				fmt.Println("安装脚本已准备就绪，请运行: sudo /etc/caddy/install.sh")
-				fmt.Println("或者使用新的安装命令: sudo caddy install")
-			}
-		}
-	}
-
 	// 注册自定义命令
 	caddycmd.RegisterCommand(caddycmd.Command{
 		Name:  "install",
 		Func:  cmdInstall,
 		Usage: "[--interactive]",
-		Short: "安装和配置 天神之眼服务",
+		Short: "安装和配置天神之眼服务",
 		Flags: func() *flag.FlagSet {
 			fs := flag.NewFlagSet("install", flag.ExitOnError)
 			fs.Bool("interactive", false, "强制交互模式")
@@ -165,7 +147,7 @@ func runInstallScript() error {
 func cmdInstall(flags caddycmd.Flags) (int, error) {
 	interactive := flags.Bool("interactive")
 
-	fmt.Println("🚀 开始安装 天神之眼服务...")
+	fmt.Println("🚀 开始安装天神之眼服务...")
 
 	// 确保文件已解压
 	if isFirstRun() {
@@ -185,7 +167,7 @@ func cmdInstall(flags caddycmd.Flags) (int, error) {
 	}
 
 	// 运行安装脚本
-	fmt.Println("⚙️  正在运行安装脚本...")
+	fmt.Println("⚙️  正在执行安装...")
 	scriptPath := "/etc/caddy/install.sh"
 
 	var args []string
@@ -201,11 +183,11 @@ func cmdInstall(flags caddycmd.Flags) (int, error) {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("❌ 安装脚本执行失败: %v\n", err)
+		fmt.Printf("❌ 安装执行失败: %v\n", err)
 		fmt.Printf("� 您也可以手动运行: sudo %s\n", scriptPath)
 		return 1, err
 	}
 
-	fmt.Println("✅ 安装完成！")
+	fmt.Println("✅ 安装完成！🎉🎉")
 	return 0, nil
 }
