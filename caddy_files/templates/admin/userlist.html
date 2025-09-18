@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户列表</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 50px;
+        }
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007AFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.3s ease;
+        }
+        .button:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        .search-box {
+            margin: 20px 0;
+            padding: 5px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: none;
+            padding: 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #E0E0E0;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .expired {
+            background-color: #FFCCCC !important;
+        }
+        .active {
+            background-color: #CCFFCC;
+        }
+        .center {
+            text-align: center;
+        }
+        .edit-button, .view-button {
+            padding: 5px 10px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .view-button:hover, .edit-button:hover {
+            background-color: #0051BA;
+        }
+        @media (max-width: 768px) {
+            th, td {
+                padding: 10px;
+            }
+            .button {
+                padding: 8px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>用户列表</h1>
+        <div class="button-container">
+            <a href="/admin/adduser" class="button">新增用户</a>
+            <a href="/admin/viewlogs" class="button">查看日志</a>
+            <a href="/admin/sysinfo" class="button">系统信息</a>
+            <a href="/admin/invite" class="button">邀请注册码</a>
+            <a href="#" class="button" onclick="deleteUsers()">删除选中用户</a>
+            <a href="#" class="button" onclick="logout()">退出登录</a>
+            <input type="text" id="search" class="search-box" placeholder="Search...">
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>登录名</th>
+                        <th>备注</th>
+                        <th>过期日期</th>
+                        <th>客户端数</th>
+                        <th class="center">二维码</th>
+                        <th class="center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Users}}
+                    <tr class="{{if IsExpired .ExpiryDate $.Now}}expired{{else}}active{{end}}">
+                        <td><input type="checkbox" value="{{.Username}}"></td>
+                        <td>{{.Username}}</td>
+                        <td>{{.Tags}}</td>
+                        <td>{{.ExpiryDate.Format "2006-01-02"}}</td>
+                        <td>{{.MaxIPs}}</td>
+                        <td class="center"><button class="view-button" onclick="openQRCode('{{.Username}}', '{{.Password}}', '{{.ExpiryDate.Format "2006-01-02"}}','{{.MaxIPs}}')">查看</button></td>
+                        <td class="center"><button class="edit-button" onclick="editUser('{{.Username}}')">修改</button></td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="7" class="center">No users found.</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        let domain = '';
+        let port = '';
+
+        // 页面加载时获取服务器信息
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/admin/get_sysinfo')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    domain = data.domain;
+                    port = data.port;
+                } else {
+                    alert(`Error:${data.message}`);
+                }
+            }).catch(error => {
+                console.error('Error fetching system info:', error);
+            });
+        });
+
+        function openQRCode(username, password, expiry, ips) {
+            const url = `/admin/qrcode?username=${username}&password=${password}&expiry=${expiry}&ips=${ips}&domain=${domain}&port=${port}`;
+            window.open(url, '_blank');
+        }
+
+        function editUser(username) {
+            window.location.href = '/admin/edituser?username=' + username;
+        }
+
+        function logout() {
+            fetch('/admin/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('已成功退出登录!');
+                    window.location.href = '/admin/login';
+                } else {
+                    alert(`Error:${data.message}`);
+                }
+            })
+            .catch(error => {
+                alert(`Error:${error.message}`);
+            });
+        }
+
+        function deleteUsers() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('先选择用户');
+                return;
+            }
+
+            const usernames = Array.from(checkboxes).map(checkbox => checkbox.value);
+            if (confirm(`确定删除以下用户吗?\n${usernames.join(', ')}`)) {
+                fetch('/admin/delete_users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ usernames: usernames })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => { throw new Error(text) });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        alert('删除成功!');
+                        window.location.reload();
+                    } else {
+                        alert(`Error:${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    alert(`Error:${error.message}`);
+                });
+            }
+        }
+
+        document.getElementById('search').addEventListener('input', function() {
+            const searchValue = this.value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const username = row.cells[1].textContent.toLowerCase();
+                const tags = row.cells[2].textContent.toLowerCase();
+
+                if (username.includes(searchValue) || tags.includes(searchValue)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>二维码</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+
+    <script src="/static/js/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7;
+            color: #333;
+        }
+        .container {
+            max-width: 960px;
+            margin: auto;
+            padding: 20px;
+        }
+        .qrcode-item {
+            width: 100%;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .qrcode-label {
+            margin-bottom: 10px;
+            font-size: 1.5em;
+            color: #333;
+        }
+        .qrcode-description {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .instruction {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+        #qrcode-android, #qrcode-ios {
+            width: 100%;
+            max-width: 256px;
+        }
+        @media (max-width: 600px) {
+            .qrcode-item {
+                margin: 10px 0;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="qrcode-item">
+        <div class="qrcode-label">安卓 / Android 客户端</div>
+        <div class="qrcode-description">使用 SagerNet 搭配 naiveproxy 插件使用，naiveproxy 插件需要在系统开启自启动权限。</div>
+        <div id="qrcode-android"></div>
+    </div>
+    <div class="qrcode-item">
+        <div class="qrcode-label">IOS 客户端</div>
+        <div class="qrcode-description">使用 Shadowrocket。通过外网市场（或香港或美国）下载。</div>
+        <div id="qrcode-ios"></div>
+    </div>
+    <div class="instruction">
+        下载好客户端后在 app 里扫码即可添加使用。<br>
+        请勿把帐号分享给他人--会导致帐号登录不了！
+    </div>
+</div>
+
+<script>
+    function generateQRCode() {
+        const params = new URLSearchParams(window.location.search);
+        const username = params.get('username');
+        const password = params.get('password');
+        const expiry = params.get('expiry');
+        const maxclient = parseInt(params.get('ips'), 10);
+        let maxips = maxclient < 1 ? 1 : Math.max(1, Math.floor(maxclient / 3));
+        const dateOnly = expiry.split('T')[0];
+        const domain = params.get('domain');
+        const port = params.get('port');
+
+        const base64Credentials = btoa(`${username}:${password}@${domain}:${port}`);
+        const urlEncodedExpiry = encodeURIComponent(`期限:${dateOnly},限:${maxips}个客户端`);
+
+        // 生成安卓二维码
+        const androidText = `naive+https://${username}:${password}@${domain}:${port}#${urlEncodedExpiry}`;
+        new QRCode(document.getElementById("qrcode-android"), {
+            text: androidText,
+            width: 256,
+            height: 256,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+
+        // 生成 iOS 二维码
+        const iosText = `http2://${base64Credentials}#${urlEncodedExpiry}`;
+        new QRCode(document.getElementById("qrcode-ios"), {
+            text: iosText,
+            width: 256,
+            height: 256,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
+
+    // 页面加载完成后生成二维码
+    window.onload = generateQRCode;
+</script>
+</body>
+</html>

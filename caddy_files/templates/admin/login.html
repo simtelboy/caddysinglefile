@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+    <style>
+        form {
+            max-width: 600px;
+            margin: auto;
+            padding: 1em;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        div {
+            margin-bottom: 1em;
+        }
+        label {
+            margin-bottom: .5em;
+            color: #333333;
+            display: block;
+        }
+        input {
+            border: 1px solid #CCCCCC;
+            padding: .5em;
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 0.7em;
+            color: #fff;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>管理员登录</h1>
+    <form id="loginForm">
+        <div>
+            <label for="username">用户名</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div>
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit">登录</button>
+    </form>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            const user = {};
+            formData.forEach((value, key) => {
+                user[key] = value;
+            });
+
+            fetch('/admin/admin_login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(user),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('登录成功!');
+                    window.location.href = '/admin/userlist';
+                } else {
+                    alert('登录失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('登录失败: ' + error.message);
+            });
+        });
+    </script>
+</body>
+</html>

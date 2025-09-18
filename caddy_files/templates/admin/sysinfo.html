@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统信息</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 50px;
+        }
+        .button {
+            background-color: #007AFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.3s ease;
+        }
+        .button:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        .header-link {
+            margin-top: 20px;
+            display: block;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/admin/userlist" class="button header-link">返回用户列表</a>
+    <h1>系统信息</h1>
+    <div class="text-center mb-4">
+        <button id="fetchSysInfo" class="btn button">重新解析服务器信息</button>
+    </div>
+    <div id="sysInfoDisplay" class="alert alert-info" style="display: none;"></div>
+</div>
+<script>
+    document.getElementById('fetchSysInfo').addEventListener('click', function() {
+        fetch('/admin/update_sysinfo')
+            .then(response => response.json())
+            .then(data => {
+                const sysInfoDisplay = document.getElementById('sysInfoDisplay');
+                if (data.success) {
+                    sysInfoDisplay.innerHTML = `<p>端口号: ${data.port}</p><p>网址: ${data.domain}</p>`;
+                    sysInfoDisplay.style.display = 'block';
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                alert(`Error: ${error.message}`);
+            });
+    });
+
+    // 页面加载时检查是否已有系统信息
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/admin/get_sysinfo')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const sysInfoDisplay = document.getElementById('sysInfoDisplay');
+                    sysInfoDisplay.innerHTML = `<p>端口号: ${data.port}</p><p>网址: ${data.domain}</p>`;
+                    sysInfoDisplay.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching system info:', error);
+            });
+    });
+</script>
+</body>
+</html>

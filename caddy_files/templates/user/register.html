@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Register Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .register-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            margin: auto;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .description {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+            font-style: italic;
+            font-weight: 300;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 80%;
+            padding: 10px;
+            margin: 0 auto;
+            display: block;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group button {
+            width: 100%;
+            padding: 10px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .form-group button:hover {
+            background-color: #004494;
+        }
+        .form-group a {
+            color: #0056b3;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .form-group a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="register-container">
+    <h2>Create Account</h2>
+    <p class="description">Can register {{.Quantity}} more accounts using this URL.</p>
+    <form id="registerForm">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label for="tags">Tags</label>
+            <input type="text" id="tags" name="tags">
+        </div>
+        <div class="form-group">
+            <label for="effective-date">Effective Date</label>
+            <span id="effective-date-display"></span>
+            <input type="hidden" id="effective-date" name="effective_date" value="" readonly>
+        </div>
+        <div class="form-group">
+            <label for="maximum-client">Maximum Client</label>
+            <input type="text" id="maximum-client" name="maximum_client" value="{{.MaxIPs}}" readonly>
+        </div>
+        <div class="form-group">
+            <button type="submit">CREATE</button>
+        </div>
+        <div class="form-group">
+            <a href="#">Already have an account? Log In</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    let actValue;
+    window.onload = function() {
+        var effectiveDateDisplay = document.getElementById('effective-date-display');
+        var effectiveDateInput = document.getElementById('effective-date');
+        var today = new Date();
+        if ({{.ExpiryDays}} > 0) {
+            today.setDate(today.getDate() + {{.ExpiryDays}});
+        } else {
+            today.setDate(today.getDate() - 1);
+        }
+        var formattedDate = today.toISOString().split('T')[0];
+
+        effectiveDateInput.value = formattedDate;
+        effectiveDateDisplay.textContent = formattedDate;
+
+        const urlParams = new URLSearchParams(window.location.search);
+
+        const act = urlParams.get('act');
+        if (act) {
+            actValue = act;
+        }
+        const tags = {{.Tags}}
+        if (tags) {
+            const tagsInput = document.getElementById('tags');
+            tagsInput.value = tags;
+            tagsInput.readOnly = true;
+        }
+
+        // 添加输入验证
+        document.getElementById('username').addEventListener('input', validateNoChinese);
+        document.getElementById('password').addEventListener('input', validateNoChinese);
+    };
+
+    function validateNoChinese(event) {
+        const value = event.target.value;
+        if (/[\u4E00-\u9FFF]/.test(value)) {
+            alert('Username 和 Password 不能包含中文字符。');
+            event.target.value = value.replace(/[\u4E00-\u9FFF]/g, '');
+        }
+    }
+
+    function validateForm(user) {
+        for (const key in user) {
+            if (key === "maximum_client") {
+                if (isNaN(user[key]) || user[key] <= 0) {
+                    alert('Maximum Client 字段必须是正数。');
+                    return false;
+                }
+            } else {
+                if (user[key].trim() === '') {
+                    alert(`The ${key} 字段是必填项，且不能包含空格。`);
+                    return false;
+                }
+                if (/\s/.test(user[key])) {
+                    alert(`The ${key} 字段不能包含空格。`);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    document.getElementById('registerForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        var formData = new FormData(this);
+        const user = {};
+
+        // 将全局变量actValue添加到user对象中
+        if (typeof actValue !== 'undefined' && actValue !== null) {
+            user.hmac_code = actValue;
+        }
+
+        formData.forEach((value, key) => {
+            user[key] = value;
+        });
+
+        // 将 effective_date 转换为 ISO 8601 格式
+        const date = new Date(user.effective_date);
+        user.effective_date = date.toISOString();
+
+        // 将 maximum_client 转换为整数
+        user.maximum_client = parseInt(user.maximum_client, 10);
+
+        // 验证表单数据
+        if (!validateForm(user)) {
+            return;
+        }
+
+        fetch('/inviter_register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(user)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.message); });
+            }
+            return response.json();
+        }).then(data => {
+            if (data.success) {
+                alert('注册成功!');
+                if (actValue === undefined){
+                    alert('请联系管理员开通帐号!');
+                }
+                window.location.href = `/admin/qrcode?username=${data.username}&password=${data.password}&expiry=${data.expiry}&ips=${data.ips}&domain=${data.domain}&port=${data.port}`;
+            } else {
+                alert(`${data.message}`);
+            }
+        }).catch(error => {
+            alert(`${error.message}`);
+        });
+    });
+</script>
+</body>
+</html>

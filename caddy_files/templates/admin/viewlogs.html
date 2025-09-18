@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>查看日志</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f5f7;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            text-align: center;
+            padding: 20px 0;
+            font-size: 2em;
+            color: #1d1d1f;
+        }
+        .button {
+            display: block;
+            width: 200px;
+            margin: 30px auto;
+            padding: 10px 20px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px;
+        }
+        .search-box {
+            width: 90%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #f5f5f7;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .log-item {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            padding: 10px;
+        }
+        .log-item:hover {
+            background-color: #f1f1f1;
+        }
+        @media (max-width: 576px) {
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+            th, td {
+                padding: 10px;
+                text-align: right;
+            }
+            th {
+                display: none;
+            }
+            tr {
+                margin-bottom: 10px;
+                border-bottom: none;
+            }
+            td::before {
+                content: attr(data-label);
+                float: left;
+                font-weight: bold;
+                text-transform: uppercase;
+            }
+            .log-item {
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                margin-bottom: 20px; /* 增加了卡片之间的间距 */
+                padding: 10px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>日志记录</h1>
+    <a href="/admin/userlist" class="button">返回用户列表</a>
+    <div class="search-container">
+        <input type="text" id="search" class="search-box" placeholder="Search by username or target username...">
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>操作</th>
+                    <th>用户名</th>
+                    <th>目标用户名</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Logs}}
+                <tr class="log-item">
+                    <td data-label="时间">{{.Time}}</td>
+                    <td data-label="操作">{{.Action}}</td>
+                    <td data-label="用户名">{{.Username}}</td>
+                    <td data-label="目标用户名">{{.TargetUsername}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    <script>
+        document.getElementById('search').addEventListener('input', function() {
+            const searchValue = this.value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const username = row.cells[2].textContent.toLowerCase();
+                const targetUsername = row.cells[3].textContent.toLowerCase();
+
+                if (username.includes(searchValue) || targetUsername.includes(searchValue)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑用户</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+    <style>
+        form {
+            max-width: 600px;
+            margin: auto;
+            padding: 1em;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        div {
+            margin-bottom: 1em;
+        }
+        label {
+            margin-bottom: .5em;
+            color: #333333;
+            display: block;
+        }
+        input {
+            border: 1px solid #CCCCCC;
+            padding: .5em;
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 0.7em;
+            color: #fff;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1em;
+        }
+        .date-options {
+            display: flex;
+            justify-content: space-between;
+        }
+        .date-options button {
+            font-size: 0.9em;
+            padding: 0.5em;
+            margin-top: 0;
+        }
+        .back-link {
+            display: block;
+            margin-bottom: 1em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-link">
+        <a href="/admin/userlist">返回用户列表</a>
+    </div>
+    <h1>编辑用户</h1>
+    <form id="editUserForm">
+        <div>
+            <label for="username">用户名</label>
+            <input type="text" id="username" name="username" readonly>
+        </div>
+        <div>
+            <label for="password">密码</label>
+            <input type="text" id="password" name="password" required>
+        </div>
+        <div>
+            <label for="email">邮箱</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <div>
+            <label for="tags">备注</label>
+            <input type="text" id="tags" name="tags">
+        </div>
+        <div>
+            <label for="expiry_date">有效期</label>
+            <input type="date" id="expiry_date" name="expiry_date" required>
+            <div class="date-options">
+                <button type="button" onclick="setExpiryDate(7)">7天</button>
+                <button type="button" onclick="setExpiryDate(14)">半个月</button>
+                <button type="button" onclick="setExpiryDate(30)">1月</button>
+                <button type="button" onclick="setExpiryDate(90)">3月</button>
+                <button type="button" onclick="setExpiryDate(180)">半年</button>
+                <button type="button" onclick="setExpiryDate(365)">1年</button>
+            </div>
+        </div>
+        <div>
+            <label for="max_ips">最大IP数</label>
+            <input type="number" id="max_ips" name="max_ips" required>
+        </div>
+        <button type="submit">保存</button>
+    </form>
+    <script>
+        function setExpiryDate(days) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            document.getElementById('expiry_date').value = `${year}-${month}-${day}`;
+        }
+
+        function validateForm(user) {
+            for (const key in user) {
+                if (key === "max_ips") {
+                    if (isNaN(user[key]) || user[key] <= 0) {
+                        alert('最大 IP 数量字段必须是正数。');
+                        return false;
+                    }
+                } else {
+                    if (user[key].trim() === '') {
+                        alert(`The ${key} 字段是必填项，且不能包含空格。`);
+                        return false;
+                    }
+                    if (/\s/.test(user[key])) {
+                        alert(`The ${key} 字段不能包含空格。`);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        document.getElementById('editUserForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            const user = {};
+            formData.forEach((value, key) => {
+                user[key] = value;
+            });
+
+            // 将 expiry_date 转换为 ISO 8601 格式
+            const date = new Date(user.expiry_date);
+            user.expiry_date = date.toISOString();
+
+            // 将 max_ips 转换为整数
+            user.max_ips = parseInt(user.max_ips, 10);
+
+            // 验证表单数据
+            if (!validateForm(user)) {
+                return;
+            }
+
+            fetch('/admin/edit_user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(user),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('保存成功!');
+                    window.location.href = '/admin/userlist';
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                alert(`Error: ${error.message}`);
+            });
+        });
+
+        // 从 URL 获取用户名并加载用户数据
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('username');
+        fetch(`/admin/get_user?username=${username}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('username').value = data.username;
+                document.getElementById('password').value = data.password;
+                document.getElementById('email').value = data.email;
+                document.getElementById('tags').value = data.tags;
+                document.getElementById('expiry_date').value = new Date(data.expiry_date).toISOString().split('T')[0];
+                document.getElementById('max_ips').value = data.max_ips;
+            })
+            .catch(error => {
+                alert(`Error loading user data: ${error.message}`);
+            });
+
+        // 设置默认的 Expiry Date 为一个星期后
+       // setExpiryDate(7);
+    </script>
+</body>
+</html>

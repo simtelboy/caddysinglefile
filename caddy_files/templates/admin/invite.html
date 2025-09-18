@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成注册网址</title>
+  <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      width: 90%;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #0056b3;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    .button:hover {
+      background-color: #004494;
+    }
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .form-group input {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin: 0 auto;
+      display: block;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .log-item {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      padding: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    @media (max-width: 576px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      th, td {
+        padding: 10px;
+        text-align: right;
+      }
+      th {
+        display: none;
+      }
+      tr {
+        margin-bottom: 10px;
+        border-bottom: none;
+      }
+      td::before {
+        content: attr(data-label);
+        float: left;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .log-item {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-bottom: 20px; /* 增加了卡片之间的间距 */
+        padding: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>生成网址</h1>
+  <a href="#" id="add-new" class="button">新增</a>
+  <a href="/admin/userlist" class="button">返回用户列表</a>
+  <div class="table-container">
+    <table id="url-table" class="table">
+      <thead>
+      <tr>
+        <th>网址对象</th>
+        <th>当前网址可注册数</th>
+        <th>帐号有效天数</th>
+        <th>最大客户端数</th>
+        <th>备注</th>
+        <th>操作</th>
+      </tr>
+      </thead>
+      <tbody>
+      <!-- 动态生成行 -->
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    fetch('/admin/get_registration_urls')
+            .then(response => response.json())
+            .then(data => {
+              const tableBody = document.querySelector('#url-table tbody');
+              data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.classList.add('log-item'); // 添加卡片样式类
+                tr.innerHTML = `
+                            <td data-label="网址对象"><input type="text" value="${row.url_title}" data-id="${row.id}" data-field="url_title"></td>
+                            <td data-label="网址可注册数"><input type="number" value="${row.quantity}" data-id="${row.id}" data-field="quantity"></td>
+                            <td data-label="帐号有效天数"><input type="number" value="${row.expiry_days}" data-id="${row.id}" data-field="expiry_days"></td>
+                            <td data-label="最大客户端数"><input type="number" value="${row.max_ips}" data-id="${row.id}" data-field="max_ips"></td>
+                            <td data-label="备注"><input type="text" value="${row.tags}" data-id="${row.id}" data-field="tags"></td>
+                            <td data-label="操作">
+                                <button onclick="saveRow(${row.id})">保存</button>
+                                <button onclick="deleteRow(${row.id})">删除</button>
+                                <button onclick="copyURL('${row.hmac_code}', '${row.tags}',${row.quantity},${row.expiry_days},${row.max_ips})">拷贝网址</button>
+                            </td>
+                        `;
+                tableBody.appendChild(tr);
+              });
+            });
+
+    document.getElementById('add-new').addEventListener('click', function() {
+      const tableBody = document.querySelector('#url-table tbody');
+      const tr = document.createElement('tr');
+      tr.classList.add('log-item'); // 添加卡片样式类
+      tr.innerHTML = `
+                    <td data-label="网址对象"><input type="text" value="" data-field="url_title"></td>
+                    <td data-label="网址可注册数"><input type="number" value="0" data-field="quantity"></td>
+                    <td data-label="帐号有效天数"><input type="number" value="0" data-field="expiry_days"></td>
+                    <td data-label="最大客户端数"><input type="number" value="0" data-field="max_ips"></td>
+                    <td data-label="备注"><input type="text" value="" data-field="tags"></td>
+                    <td data-label="操作"><button onclick="saveNewRow(this)">保存</button></td>
+                `;
+      tableBody.insertBefore(tr, tableBody.firstChild);
+    });
+
+   /* document.getElementById('save-all').addEventListener('click', function() {
+      const inputs = document.querySelectorAll('#url-table tbody input');
+      const updates = [];
+      inputs.forEach(input => {
+        const id = input.dataset.id;
+        const field = input.dataset.field;
+        const value = input.value;
+        updates.push({ id, field, value });
+      });
+      fetch('/admin/update_registration_urls', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      })
+              .then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                  alert('保存成功!');
+                  location.reload();
+                } else {
+                  alert('保存失败: ' + data.message);
+                }
+              });
+    });*/
+  });
+
+  function saveRow(id) {
+    const inputs = document.querySelectorAll(`#url-table tbody input[data-id="${id}"]`);
+    const update = {};
+    inputs.forEach(input => {
+      const value = input.value;
+      if (input.dataset.field === "quantity" || input.dataset.field === "expiry_days" || input.dataset.field === "max_ips") {
+        update[input.dataset.field] = parseInt(value,10);
+      } else {
+        update[input.dataset.field] = value;
+      }
+    });
+    update.id = id;
+
+    fetch('/admin/update_registration_url', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(update)
+    })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                alert('保存成功!');
+                location.reload();
+              } else {
+                alert('保存失败: ' + data.message);
+              }
+            });
+  }
+
+  function saveNewRow(button) {
+    const tr = button.closest('tr');
+    const inputs = tr.querySelectorAll('input');
+    const newRow = {};
+    inputs.forEach(input => {
+      const value = input.value;
+      if (input.dataset.field === "quantity" || input.dataset.field === "expiry_days" || input.dataset.field === "max_ips") {
+        newRow[input.dataset.field] = parseInt(value,10);
+      } else {
+        newRow[input.dataset.field] = value;
+      }
+    });
+    fetch('/admin/create_registration_url', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newRow)
+    })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                alert('创建成功!');
+                location.reload();
+              } else {
+                alert('创建失败: ' + data.message);
+              }
+            });
+  }
+
+  function deleteRow(id) {
+    if (confirm('确定要删除此行吗?')) {
+      fetch(`/admin/delete_registration_url?id=${id}`, {
+        method: 'DELETE'
+      })
+              .then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                  alert('删除成功!');
+                  location.reload();
+                } else {
+                  alert('删除失败: ' + data.message);
+                }
+              });
+    }
+  }
+
+  function copyURL(hmac_code, tags, quantity, expiry_days, max_ips) {
+    fetch(`/admin/get_sysinfo`)
+            .then(response => response.json())
+            .then(data => {
+              const domain = data.domain;
+              const port = data.port;
+              let ips = max_ips < 1 ? 1 : Math.max(1, Math.floor(max_ips / 3));
+              const url = `https://${domain}/register?act=${hmac_code}`;
+              const textToShare = `${url}\n\n\t本网址:限制注册${quantity}个用户，\n\t注册后帐户期限为${expiry_days}天，\n\t限制登陆客户端${ips}个，\n\n\t注册成功后，有展示二维码，请截图保存好！\n\n\t请勿把帐号分享给他人--导致帐号失效！`;
+
+              if (navigator.share) {
+                navigator.share({
+                  title: '分享网址',
+                  text: textToShare,
+                  url: url
+                }).then(() => {
+                  console.log('分享成功');
+                }).catch(err => {
+                  console.error('分享失败: ', err);
+                });
+              } else {
+                // 如果不支持 Web Share API,可以提供一个备用方案,例如显示一个提示,告诉用户手动复制文本
+                alert('请长按以下文本,然后选择"复制"进行手动复制:\n\n' + textToShare);
+              }
+            })
+            .catch(err => console.error('获取系统信息失败: ', err));
+  }
+</script>
+</body>
+</html>
