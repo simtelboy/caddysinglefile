@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec" 
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/caddyserver/caddy/v2/cmd/caddycmd"  // 注意这个导入路径
+	"github.com/spf13/cobra"
 )
 
 //go:embed embedded_files.zip
@@ -19,25 +23,148 @@ const (
 	extractPath  = "/etc/caddy"
 )
 
-// init 函数在包加载时就执行文件解压
 func init() {
-    // 在模块初始化时就执行文件解压
+
+	// 首次运行检查和文件解压逻辑
     if isFirstRun() {
         fmt.Println("检测到首次运行，正在释出系统文件...")
         if err := extractEmbeddedFiles(); err != nil {
-            fmt.Printf("警告: 释出系统文件失败: %v\n", err)
+            fmt.Printf("警告:释出系统文件失败: %v\n", err)
         } else {
-            fmt.Println("成功释出系统文件到 /etc/caddy/")
+            fmt.Println("成功解压嵌入文件到 /etc/caddy/")
             
-            // 解压成功后，设置安装脚本权限并提示用户
             if err := runInstallScript(); err != nil {
-                fmt.Printf("警告: 无法指定安装脚本权限，请手动输入：chmod +X /etc/caddy/install.sh : %v\n", err)
+                fmt.Printf("警告: 无法准备安装过程: %v\n", err)
             } else {
                 fmt.Println("安装脚本已准备就绪，请运行: sudo /etc/caddy/install.sh")
+                fmt.Println("或者使用新的安装命令: sudo caddy install")
             }
         }
     }
+	
+    // 注册自定义命令
+    caddycmd.RegisterCommand(caddycmd.Command{
+        Name:  "install",
+        Usage: "[--interactive]",
+        Short: "安装和配置 天神之眼服务",
+        Long: `安装和配置  天神之眼服务，包含交互式设置向导。
+
+此命令将执行以下操作：
+1. 解压嵌入的配置文件
+2. 运行交互式设置向导
+3. 生成系统服务文件
+4. 配置并启动服务`,
+        CobraFunc: func(cmd *cobra.Command) {
+            cmd.Flags().Bool("interactive", false, "强制交互模式")
+            cmd.RunE = func(cmd *cobra.Command, args []string) error {
+                interactive, _ := cmd.Flags().GetBool("interactive")
+                return runInstallCommand(interactive)
+            }
+        },
+    })
 }
+
+
+func runInstallCommand(forceInteractive bool) error {
+    fmt.Println("🚀 开始安装 天神之眼服务...")
+    
+    // 1. 检查权限
+    if os.Geteuid() != 0 {
+        fmt.Println("❌ 需要root权限，请使用: sudo caddy install")
+        return fmt.Errorf("需要root权限")
+    }
+
+    // 2. 确保文件已解压
+    fmt.Println("📦 正在释出配置文件...")
+    if err := extractEmbeddedFiles(); err != nil {
+        fmt.Printf("❌ 释出文件失败: %v\n", err)
+        return err
+    }
+    fmt.Println("✅ 配置文件释出完成")
+
+    // 3. 检查安装脚本是否存在
+    scriptPath := "/etc/caddy/install.sh"
+    if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+        fmt.Printf("❌ 缺少配置: %s\n", scriptPath)
+        return fmt.Errorf("配置文件不存在: %s", scriptPath)
+    }
+
+    // 4. 设置脚本权限
+    fmt.Println("🔧 设置权限...")
+    if err := os.Chmod(scriptPath, 0755); err != nil {
+        fmt.Printf("❌ 设置权限失败: %v\n", err)
+        return fmt.Errorf("设置权限失败: %v", err)
+    }
+
+    // 5. 运行安装脚本
+    fmt.Println("⚙️  正在运行安装...")
+    fmt.Println("📝 请按照提示输入配置信息...")
+    
+    cmd := exec.Command("/bin/bash", scriptPath)
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    cmd.Stdin = os.Stdin
+
+    // 6. 执行并处理错误
+    if err := cmd.Run(); err != nil {
+        // 检查是否是退出码错误
+        if exitError, ok := err.(*exec.ExitError); ok {
+            exitCode := exitError.ExitCode()
+            fmt.Printf("❌ 安装执行失败，退出码: %d\n", exitCode)
+            
+            // 根据退出码给出不同的提示
+            switch exitCode {
+            case 1:
+                fmt.Println("💡 提示: 可能是配置输入有误，请检查域名、邮箱等信息")
+            case 2:
+                fmt.Println("💡 提示: 可能是系统权限问题，请确保以root权限运行")
+            case 130:
+                fmt.Println("💡 提示: 安装被用户中断 (Ctrl+C)")
+                return fmt.Errorf("安装被用户中断")
+            default:
+                fmt.Println("💡 提示: 安装过程中遇到未知错误")
+            }
+            
+            return fmt.Errorf("安装过程执行失败，退出码: %d", exitCode)
+        }
+        
+        fmt.Printf("❌ 安装失败: %v\n", err)
+        return fmt.Errorf("安装失败: %v", err)
+    }
+
+    // 7. 验证安装结果
+    fmt.Println("🔍 验证安装结果...")
+    if err := verifyInstallation(); err != nil {
+        fmt.Printf("⚠️  安装可能不完整: %v\n", err)
+        fmt.Println("💡 建议手动检查服务状态: systemctl status caddy")
+        // 不返回错误，因为主要安装可能已经完成
+    }
+
+    fmt.Println("🎉 安装完成！")
+    fmt.Println("📋 后续步骤:")
+    fmt.Println("   1. 检查服务状态: systemctl status caddy")
+    fmt.Println("   2. 查看日志: journalctl -u caddy -f")
+    fmt.Println("   3. 访问管理界面进行进一步配置")
+    
+    return nil
+}
+
+// 验证安装结果
+func verifyInstallation() error {
+    // 检查服务文件是否存在
+    if _, err := os.Stat("/etc/systemd/system/caddy.service"); os.IsNotExist(err) {
+        return fmt.Errorf("systemd服务文件不存在")
+    }
+
+    // 检查Caddyfile是否存在
+    if _, err := os.Stat("/etc/caddy/Caddyfile"); os.IsNotExist(err) {
+        return fmt.Errorf("Caddyfile配置文件不存在")
+    }
+
+    // 可以添加更多检查...
+    return nil
+}
+
 
 // extractEmbeddedFiles 解压嵌入的zip文件到指定目录
 func extractEmbeddedFiles() error {
@@ -142,4 +269,5 @@ func runInstallScript() error {
 
 	return nil
 }
+
 
