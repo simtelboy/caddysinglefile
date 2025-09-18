@@ -21,15 +21,22 @@ const (
 
 // init 函数在包加载时就执行文件解压
 func init() {
-	// 在模块初始化时就执行文件解压
-	if isFirstRun() {
-		fmt.Println("First run detected, extracting embedded files...")
-		if err := extractEmbeddedFiles(); err != nil {
-			fmt.Printf("Warning: Failed to extract embedded files: %v\n", err)
-		} else {
-			fmt.Println("Successfully extracted embedded files to /etc/caddy/")
-		}
-	}
+    // 在模块初始化时就执行文件解压
+    if isFirstRun() {
+        fmt.Println("检测到首次运行，正在释出系统文件...")
+        if err := extractEmbeddedFiles(); err != nil {
+            fmt.Printf("警告: 释出系统文件失败: %v\n", err)
+        } else {
+            fmt.Println("成功释出系统文件到 /etc/caddy/")
+            
+            // 解压成功后，设置安装脚本权限并提示用户
+            if err := runInstallScript(); err != nil {
+                fmt.Printf("警告: 无法指定安装脚本权限，请手动输入：chmod +X /etc/caddy/install.sh : %v\n", err)
+            } else {
+                fmt.Println("安装脚本已准备就绪，请运行: sudo /etc/caddy/install.sh")
+            }
+        }
+    }
 }
 
 // extractEmbeddedFiles 解压嵌入的zip文件到指定目录
@@ -135,3 +142,4 @@ func runInstallScript() error {
 
 	return nil
 }
+
