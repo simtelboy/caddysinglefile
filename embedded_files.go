@@ -19,6 +19,19 @@ const (
 	extractPath  = "/etc/caddy"
 )
 
+// init 函数在包加载时就执行文件解压
+func init() {
+	// 在模块初始化时就执行文件解压
+	if isFirstRun() {
+		fmt.Println("First run detected, extracting embedded files...")
+		if err := extractEmbeddedFiles(); err != nil {
+			fmt.Printf("Warning: Failed to extract embedded files: %v\n", err)
+		} else {
+			fmt.Println("Successfully extracted embedded files to /etc/caddy/")
+		}
+	}
+}
+
 // extractEmbeddedFiles 解压嵌入的zip文件到指定目录
 func extractEmbeddedFiles() error {
 	// 检查标志文件是否存在

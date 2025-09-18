@@ -177,14 +177,12 @@ func GetUserConfig() *UserConfig {
 			monthlyLimit:        make(map[string]int64), //用户访问月上限
 			userAccessLog:       make(map[string]*Accesslog),
 		}
-		//加载月上限数据
-		if shareuserManager.config.UserTrafficCheckLevel >= 3 {
+		// 只有在 shareuserManager 不为 nil 时才加载月限额数据
+		if shareuserManager != nil && shareuserManager.config.UserTrafficCheckLevel >= 3 {
 			if err := LoadAllMonthlyLimits(); err != nil {
-				fmt.Printf("Error loading monthly limits: %v", err)
+				fmt.Printf("Warning: Error loading monthly limits: %v\n", err)
 			}
 		}
-
-		//addTestDataToUserTraffic() //hotyi 删之
 	})
 	return shareglobalUserConfig
 }
