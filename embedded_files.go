@@ -30,13 +30,47 @@ func init() {
 		Name:  "install",
 		Func:  cmdInstall,
 		Usage: "[--interactive]",
-		Short: "安装和配置天神之眼服务",
+		Short: "安装和配置天神之眼服务,软件作者:hotyi",
 		Flags: func() *flag.FlagSet {
 			fs := flag.NewFlagSet("install", flag.ExitOnError)
 			fs.Bool("interactive", false, "强制交互模式")
 			return fs
 		}(),
 	})
+
+
+	// 新增：更新命令
+    caddycmd.RegisterCommand(caddycmd.Command{
+        Name:  "update",
+        Func:  cmdUpdate,
+        Usage: "",
+        Short: "更新天神之眼到最新版本",
+    })
+
+	 // 新增：备份命令
+    caddycmd.RegisterCommand(caddycmd.Command{
+        Name:  "backup",
+        Func:  cmdBackup,
+        Usage: "",
+        Short: "备份天神之眼配置数据,软件作者:hotyi",
+    })
+
+	// 新增：恢复命令
+    caddycmd.RegisterCommand(caddycmd.Command{
+        Name:  "restore",
+        Func:  cmdRestore,
+        Usage: "",
+        Short: "恢复天神之眼配置数据,软件作者:hotyi",
+    })
+
+    // 新增：卸载命令
+    caddycmd.RegisterCommand(caddycmd.Command{
+        Name:  "uninstall",
+        Func:  cmdUninstall,
+        Usage: "",
+        Short: "卸载天神之眼服务,软件作者:hotyi",
+    })
+
 }
 
 // extractEmbeddedFiles 解压嵌入的zip文件到指定目录
@@ -191,3 +225,93 @@ func cmdInstall(flags caddycmd.Flags) (int, error) {
 	fmt.Println("✅ 安装完成！🎉🎉")
 	return 0, nil
 }
+
+
+// cmdUpdate 处理 update 命令
+func cmdUpdate(flags caddycmd.Flags) (int, error) {
+    fmt.Println("🚀 开始更新天神之眼...")
+
+    // 确保文件已解压
+    if err := extractEmbeddedFiles(); err != nil {
+        fmt.Printf("❌ 释出配置文件失败: %v\n", err)
+        return 1, err
+    }
+
+    // 运行更新脚本
+    scriptPath := "/etc/caddy/update.sh"
+    return runScript(scriptPath, "更新")
+}
+
+// cmdBackup 处理 backup 命令
+func cmdBackup(flags caddycmd.Flags) (int, error) {
+    fmt.Println("🗄️ 开始备份天神之眼数据...")
+
+    // 确保文件已解压
+    if err := extractEmbeddedFiles(); err != nil {
+        fmt.Printf("❌ 释出配置文件失败: %v\n", err)
+        return 1, err
+    }
+
+    // 运行备份脚本
+    scriptPath := "/etc/caddy/backup.sh"
+    return runScript(scriptPath, "备份")
+}
+
+// cmdRestore 处理 restore 命令
+func cmdRestore(flags caddycmd.Flags) (int, error) {
+    fmt.Println("🔄 开始恢复天神之眼数据...")
+
+    // 确保文件已解压
+    if err := extractEmbeddedFiles(); err != nil {
+        fmt.Printf("❌ 释出配置文件失败: %v\n", err)
+        return 1, err
+    }
+
+    // 运行恢复脚本
+    scriptPath := "/etc/caddy/restore.sh"
+    return runScript(scriptPath, "恢复")
+}
+
+// cmdUninstall 处理 uninstall 命令
+func cmdUninstall(flags caddycmd.Flags) (int, error) {
+    fmt.Println("🗑️ 开始卸载天神之眼...")
+
+    // 确保文件已解压
+    if err := extractEmbeddedFiles(); err != nil {
+        fmt.Printf("❌ 释出配置文件失败: %v\n", err)
+        return 1, err
+    }
+
+    // 运行卸载脚本
+    scriptPath := "/etc/caddy/uninstall.sh"
+    return runScript(scriptPath, "卸载")
+}
+
+// runScript 通用脚本执行函数
+func runScript(scriptPath, operation string) (int, error) {
+    // 检查脚本是否存在
+    if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+        return 1, fmt.Errorf("%s脚本不存在: %s", operation, scriptPath)
+    }
+
+    // 设置脚本为可执行
+    if err := os.Chmod(scriptPath, 0755); err != nil {
+        return 1, fmt.Errorf("设置脚本权限失败: %v", err)
+    }
+
+    // 执行脚本
+    cmd := exec.Command("/bin/bash", scriptPath)
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    cmd.Stdin = os.Stdin
+
+    if err := cmd.Run(); err != nil {
+        fmt.Printf("❌ %s执行失败: %v\n", operation, err)
+        fmt.Printf("💡 您也可以手动运行: sudo %s\n", scriptPath)
+        return 1, err
+    }
+
+    fmt.Printf("✅ %s完成！🎉\n", operation)
+    return 0, nil
+}
+
