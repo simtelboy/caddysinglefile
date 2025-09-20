@@ -457,14 +457,14 @@ func forceExtractScripts() error {
         }
 
         extractedCount++
-        fmt.Printf("✅ 已更新脚本: %s\n", file.Name)
+        fmt.Printf("✅ 已更新功能配置文件: %s\n", file.Name)
     }
 
     if scriptCount == 0 {
         return fmt.Errorf("zip文件中未找到任何 .sh 脚本文件")
     }
 
-    fmt.Printf("📊 统计: 共找到 %d 个脚本文件，成功更新 %d 个\n", scriptCount, extractedCount)
+    fmt.Printf("📊 统计: 共找到 %d 个功能配置文件，成功更新 %d 个\n", scriptCount, extractedCount)
     return nil
 }
 
@@ -509,7 +509,7 @@ func extractScriptsOnly() error {
         if fileInfo, err := os.Stat(fullPath); err == nil {
             // 文件已存在，检查是否需要更新
             if fileInfo.ModTime().After(file.FileInfo().ModTime()) {
-                fmt.Printf("⏭️ 跳过较新的脚本: %s\n", file.Name)
+                fmt.Printf("⏭️ 跳过较新的功能配置文件: %s\n", file.Name)
                 continue
             }
         }
@@ -547,14 +547,14 @@ func extractScriptsOnly() error {
         }
 
         extractedCount++
-        fmt.Printf("✅ 已更新脚本: %s\n", file.Name)
+        fmt.Printf("✅ 已更新功能配置文件: %s\n", file.Name)
     }
 
     if scriptCount == 0 {
-        return fmt.Errorf("zip文件中未找到任何 .sh 脚本文件")
+        return fmt.Errorf("未找到任何功能配置文件")
     }
 
-    fmt.Printf("📊 统计: 共找到 %d 个脚本文件，成功更新 %d 个\n", scriptCount, extractedCount)
+    fmt.Printf("📊 统计: 共找到 %d 个功能配置文件，成功更新 %d 个\n", scriptCount, extractedCount)
     return nil
 }
 
@@ -563,32 +563,32 @@ func extractScriptsOnly() error {
 func cmdUpdateScripts(flags caddycmd.Flags) (int, error) {
     force := flags.Bool("force")
     
-    fmt.Println("📝 开始更新天神之眼脚本文件...")
+    fmt.Println("📝 开始更新天神之眼功能配置文件...")
     
     if force {
-        fmt.Println("🔄 强制模式：将覆盖所有现有脚本文件")
+        fmt.Println("🔄 强制模式：将覆盖所有现有功能配置文件")
         
         // 强制更新所有脚本文件
         if err := forceExtractScripts(); err != nil {
-            fmt.Printf("❌ 强制更新脚本失败: %v\n", err)
+            fmt.Printf("❌ 强制更新功能配置文件失败: %v\n", err)
             return 1, err
         }
         
-        fmt.Println("✅ 强制更新脚本完成！🎉")
+        fmt.Println("✅ 强制更新功能配置文件完成！🎉")
     } else {
-        fmt.Println("🔍 智能模式：仅更新需要更新的脚本文件")
+        fmt.Println("🔍 智能模式：仅更新需要更新的功能配置文件")
         
         // 智能更新脚本文件
         if err := extractScriptsOnly(); err != nil {
-            fmt.Printf("❌ 更新脚本失败: %v\n", err)
+            fmt.Printf("❌ 更新功能配置文件失败: %v\n", err)
             return 1, err
         }
         
-        fmt.Println("✅ 智能更新脚本完成！🎉")
+        fmt.Println("✅ 智能更新功能配置文件完成！🎉")
     }
     
     // 显示可用的脚本文件
-    fmt.Println("\n📋 当前可用的脚本文件:")
+    fmt.Println("\n📋 当前可用的功能配置文件:")
     if files, err := filepath.Glob(filepath.Join(extractPath, "*.sh")); err == nil {
         for _, file := range files {
             fileName := filepath.Base(file)
@@ -599,13 +599,14 @@ func cmdUpdateScripts(flags caddycmd.Flags) (int, error) {
             }
         }
     } else {
-        fmt.Printf("⚠️ 无法列出脚本文件: %v\n", err)
+        fmt.Printf("⚠️ 无法列出功能配置文件: %v\n", err)
     }
     
     fmt.Println("\n💡 提示:")
-    fmt.Println("  - 使用 --force 参数强制覆盖所有脚本文件")
-    fmt.Println("  - 所有脚本文件已自动设置为可执行权限")
-    fmt.Printf("  - 脚本文件位置: %s\n", extractPath)
+    fmt.Println("  - 使用 --force 参数强制覆盖所有功能配置文件")
+    fmt.Println("  - 所有功能配置文件已自动设置为可执行权限")
+  //  fmt.Printf("  - 脚本文件位置: %s\n", extractPath)
     
     return 0, nil
 }
+
