@@ -71,6 +71,22 @@ func init() {
         Short: "卸载天神之眼服务,软件作者:hotyi",
     })
 
+// 新增：自动更新设置命令
+caddycmd.RegisterCommand(caddycmd.Command{
+    Name:  "autoupdate",
+    Func:  cmdAutoUpdate,
+    Usage: "[enable|disable|status]",
+    Short: "管理天神之眼自动更新设置,软件作者:hotyi",
+    Flags: func() *flag.FlagSet {
+        fs := flag.NewFlagSet("autoupdate", flag.ExitOnError)
+        fs.Bool("enable", false, "启用自动更新")
+        fs.Bool("disable", false, "禁用自动更新")
+        fs.Bool("status", false, "查看状态")
+        return fs
+    }(),
+})
+	
+
 }
 
 // extractEmbeddedFiles 解压嵌入的zip文件到指定目录
@@ -288,19 +304,27 @@ func cmdUninstall(flags caddycmd.Flags) (int, error) {
 }
 
 // runScript 通用脚本执行函数
-func runScript(scriptPath, operation string) (int, error) {
-    // 检查脚本是否存在
+func runScript(scriptPath, operation string, args ...string) (int, error) {
+   // 检查脚本是否存在
     if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-        return 1, fmt.Errorf("%s脚本不存在: %s", operation, scriptPath)
+        return 1, fmt.Errorf("%s配置文件不存在: %s", operation, scriptPath)
     }
 
     // 设置脚本为可执行
     if err := os.Chmod(scriptPath, 0755); err != nil {
-        return 1, fmt.Errorf("设置脚本权限失败: %v", err)
+        return 1, fmt.Errorf("设置权限失败: %v", err)
+    }
+
+    // 构建命令参数
+    var cmdArgs []string
+    if len(args) > 0 {
+        cmdArgs = args
+    } else {
+        cmdArgs = []string{scriptPath}
     }
 
     // 执行脚本
-    cmd := exec.Command("/bin/bash", scriptPath)
+    cmd := exec.Command("/bin/bash", cmdArgs...)
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
     cmd.Stdin = os.Stdin
@@ -315,3 +339,32 @@ func runScript(scriptPath, operation string) (int, error) {
     return 0, nil
 }
 
+
+// cmdAutoUpdate 处理自动更新设置命令
+func cmdAutoUpdate(flags caddycmd.Flags) (int, error) {
+    enable := flags.Bool("enable")
+    disable := flags.Bool("disable")
+    status := flags.Bool("status")
+    
+    fmt.Println("⚙️ 天神之眼自动更新设置...")
+    
+    // 确保文件已解压
+    if err := extractEmbeddedFiles(); err != nil {
+        fmt.Printf("❌ 释出配置文件失败: %v\n", err)
+        return 1, err
+    }
+    
+    scriptPath := "/etc/caddy/autoupdate_setup.sh"
+    
+    // 根据参数选择操作
+    if enable {
+        return runScript(scriptPath, "启用自动更新", scriptPath, "enable")
+    } else if disable {
+        return runScript(scriptPath, "禁用自动更新", scriptPath, "disable")
+    } else if status {
+        return runScript(scriptPath, "查看自动更新状态", scriptPath, "status")
+    } else {
+        // 默认启动交互式设置
+        return runScript(scriptPath, "自动更新设置")
+    }
+}
