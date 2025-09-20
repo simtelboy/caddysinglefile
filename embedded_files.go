@@ -91,10 +91,10 @@ caddycmd.RegisterCommand(caddycmd.Command{
     Name:  "update-scripts",
     Func:  cmdUpdateScripts,
     Usage: "[--force]",
-    Short: "更新天神之眼脚本文件,软件作者:hotyi",
+    Short: "更新天神之眼功能配置文件,软件作者:hotyi",
     Flags: func() *flag.FlagSet {
         fs := flag.NewFlagSet("update-scripts", flag.ExitOnError)
-        fs.Bool("force", false, "强制更新所有脚本文件")
+        fs.Bool("force", false, "强制更新所有功能配置文件")
         return fs
     }(),
 })
@@ -609,4 +609,5 @@ func cmdUpdateScripts(flags caddycmd.Flags) (int, error) {
     
     return 0, nil
 }
+
 
