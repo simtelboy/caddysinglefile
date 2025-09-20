@@ -86,7 +86,19 @@ caddycmd.RegisterCommand(caddycmd.Command{
     }(),
 })
 	
-
+// 新增：更新脚本命令
+caddycmd.RegisterCommand(caddycmd.Command{
+    Name:  "update-scripts",
+    Func:  cmdUpdateScripts,
+    Usage: "[--force]",
+    Short: "更新天神之眼脚本文件,软件作者:hotyi",
+    Flags: func() *flag.FlagSet {
+        fs := flag.NewFlagSet("update-scripts", flag.ExitOnError)
+        fs.Bool("force", false, "强制更新所有脚本文件")
+        return fs
+    }(),
+})
+	
 }
 
 // extractEmbeddedFiles 解压嵌入的zip文件到指定目录
@@ -367,4 +379,233 @@ func cmdAutoUpdate(flags caddycmd.Flags) (int, error) {
         // 默认启动交互式设置
         return runScript(scriptPath, "自动更新设置")
     }
+}
+
+
+
+// forceExtractScripts 强制解压嵌入的zip文件中的脚本文件到指定目录
+func forceExtractScripts() error {
+    // 创建目标目录
+    if err := os.MkdirAll(extractPath, 0755); err != nil {
+        return fmt.Errorf("failed to create directory %s: %v", extractPath, err)
+    }
+
+    // 创建zip reader
+    zipReader, err := zip.NewReader(strings.NewReader(string(embeddedFiles)), int64(len(embeddedFiles)))
+    if err != nil {
+        return fmt.Errorf("failed to create zip reader: %v", err)
+    }
+
+    var extractedCount int
+    var scriptCount int
+
+    // 解压文件
+    for _, file := range zipReader.File {
+        // 构建完整路径
+        fullPath := filepath.Join(extractPath, file.Name)
+
+        // 确保路径安全（防止路径遍历攻击）
+        if !strings.HasPrefix(fullPath, extractPath) {
+            continue
+        }
+
+        // 只处理 .sh 脚本文件
+        if !strings.HasSuffix(strings.ToLower(file.Name), ".sh") {
+            continue
+        }
+
+        scriptCount++
+
+        if file.FileInfo().IsDir() {
+            // 创建目录
+            if err := os.MkdirAll(fullPath, file.FileInfo().Mode()); err != nil {
+                return fmt.Errorf("failed to create directory %s: %v", fullPath, err)
+            }
+            continue
+        }
+
+        // 创建文件
+        if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+            return fmt.Errorf("failed to create parent directory for %s: %v", fullPath, err)
+        }
+
+        // 打开zip文件中的文件
+        rc, err := file.Open()
+        if err != nil {
+            return fmt.Errorf("failed to open file in zip: %v", err)
+        }
+
+        // 创建目标文件（覆盖模式）
+        outFile, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, file.FileInfo().Mode())
+        if err != nil {
+            rc.Close()
+            return fmt.Errorf("failed to create file %s: %v", fullPath, err)
+        }
+
+        // 复制文件内容
+        _, err = io.Copy(outFile, rc)
+        rc.Close()
+        outFile.Close()
+
+        if err != nil {
+            return fmt.Errorf("failed to write file %s: %v", fullPath, err)
+        }
+
+        // 设置脚本为可执行
+        if err := os.Chmod(fullPath, 0755); err != nil {
+            fmt.Printf("⚠️ 警告: 设置 %s 权限失败: %v\n", fullPath, err)
+        }
+
+        extractedCount++
+        fmt.Printf("✅ 已更新脚本: %s\n", file.Name)
+    }
+
+    if scriptCount == 0 {
+        return fmt.Errorf("zip文件中未找到任何 .sh 脚本文件")
+    }
+
+    fmt.Printf("📊 统计: 共找到 %d 个脚本文件，成功更新 %d 个\n", scriptCount, extractedCount)
+    return nil
+}
+
+// extractScriptsOnly 仅解压脚本文件的函数
+func extractScriptsOnly() error {
+    // 创建目标目录
+    if err := os.MkdirAll(extractPath, 0755); err != nil {
+        return fmt.Errorf("failed to create directory %s: %v", extractPath, err)
+    }
+
+    // 创建zip reader
+    zipReader, err := zip.NewReader(strings.NewReader(string(embeddedFiles)), int64(len(embeddedFiles)))
+    if err != nil {
+        return fmt.Errorf("failed to create zip reader: %v", err)
+    }
+
+    var extractedCount int
+    var scriptCount int
+
+    // 解压文件
+    for _, file := range zipReader.File {
+        // 构建完整路径
+        fullPath := filepath.Join(extractPath, file.Name)
+
+        // 确保路径安全（防止路径遍历攻击）
+        if !strings.HasPrefix(fullPath, extractPath) {
+            continue
+        }
+
+        // 只处理 .sh 脚本文件
+        if !strings.HasSuffix(strings.ToLower(file.Name), ".sh") {
+            continue
+        }
+
+        scriptCount++
+
+        if file.FileInfo().IsDir() {
+            continue
+        }
+
+        // 检查文件是否已存在且较新
+        if fileInfo, err := os.Stat(fullPath); err == nil {
+            // 文件已存在，检查是否需要更新
+            if fileInfo.ModTime().After(file.FileInfo().ModTime()) {
+                fmt.Printf("⏭️ 跳过较新的脚本: %s\n", file.Name)
+                continue
+            }
+        }
+
+        // 创建文件
+        if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+            return fmt.Errorf("failed to create parent directory for %s: %v", fullPath, err)
+        }
+
+        // 打开zip文件中的文件
+        rc, err := file.Open()
+        if err != nil {
+            return fmt.Errorf("failed to open file in zip: %v", err)
+        }
+
+        // 创建目标文件
+        outFile, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, file.FileInfo().Mode())
+        if err != nil {
+            rc.Close()
+            return fmt.Errorf("failed to create file %s: %v", fullPath, err)
+        }
+
+        // 复制文件内容
+        _, err = io.Copy(outFile, rc)
+        rc.Close()
+        outFile.Close()
+
+        if err != nil {
+            return fmt.Errorf("failed to write file %s: %v", fullPath, err)
+        }
+
+        // 设置脚本为可执行
+        if err := os.Chmod(fullPath, 0755); err != nil {
+            fmt.Printf("⚠️ 警告: 设置 %s 权限失败: %v\n", fullPath, err)
+        }
+
+        extractedCount++
+        fmt.Printf("✅ 已更新脚本: %s\n", file.Name)
+    }
+
+    if scriptCount == 0 {
+        return fmt.Errorf("zip文件中未找到任何 .sh 脚本文件")
+    }
+
+    fmt.Printf("📊 统计: 共找到 %d 个脚本文件，成功更新 %d 个\n", scriptCount, extractedCount)
+    return nil
+}
+
+
+// cmdUpdateScripts 处理更新脚本命令
+func cmdUpdateScripts(flags caddycmd.Flags) (int, error) {
+    force := flags.Bool("force")
+    
+    fmt.Println("📝 开始更新天神之眼脚本文件...")
+    
+    if force {
+        fmt.Println("🔄 强制模式：将覆盖所有现有脚本文件")
+        
+        // 强制更新所有脚本文件
+        if err := forceExtractScripts(); err != nil {
+            fmt.Printf("❌ 强制更新脚本失败: %v\n", err)
+            return 1, err
+        }
+        
+        fmt.Println("✅ 强制更新脚本完成！🎉")
+    } else {
+        fmt.Println("🔍 智能模式：仅更新需要更新的脚本文件")
+        
+        // 智能更新脚本文件
+        if err := extractScriptsOnly(); err != nil {
+            fmt.Printf("❌ 更新脚本失败: %v\n", err)
+            return 1, err
+        }
+        
+        fmt.Println("✅ 智能更新脚本完成！🎉")
+    }
+    
+    // 显示可用的脚本文件
+    fmt.Println("\n📋 当前可用的脚本文件:")
+    if files, err := filepath.Glob(filepath.Join(extractPath, "*.sh")); err == nil {
+        for _, file := range files {
+            fileName := filepath.Base(file)
+            if fileInfo, err := os.Stat(file); err == nil {
+                fmt.Printf("  📄 %s (修改时间: %s)\n", fileName, fileInfo.ModTime().Format("2006-01-02 15:04:05"))
+            } else {
+                fmt.Printf("  📄 %s\n", fileName)
+            }
+        }
+    } else {
+        fmt.Printf("⚠️ 无法列出脚本文件: %v\n", err)
+    }
+    
+    fmt.Println("\n💡 提示:")
+    fmt.Println("  - 使用 --force 参数强制覆盖所有脚本文件")
+    fmt.Println("  - 所有脚本文件已自动设置为可执行权限")
+    fmt.Printf("  - 脚本文件位置: %s\n", extractPath)
+    
+    return 0, nil
 }
