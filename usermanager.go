@@ -699,116 +699,106 @@ func NewUserManager() (*UserManager, error) {
 
 // 函数用于创建和启动调度器,并添加任务
 func (h *Handler) setupScheduledTask() error {
-	// 创建调度器,使用本地时区
-	s, er := gocron.NewScheduler()
-	if er != nil {
-		fmt.Println("err:", er)
-	}
+    // 创建调度器，使用系统时区（已在安装时设置为北京时间）
+    s, er := gocron.NewScheduler()
+    if er != nil {
+        fmt.Println("err:", er)
+    }
 
-	// 获取北京时区
-	beijingLocation, _ := time.LoadLocation("Asia/Shanghai")
-	h.logger.Info("北京时区:", zap.Any("beijingLocation", beijingLocation))
+    // 直接使用当前系统时间（已设置为北京时间）
+    now := time.Now()
+    h.logger.Info("当前系统时间（北京时间）", zap.Time("current_time", now))
 
-	// 获取当前时间，并转换为北京时间
-	now := time.Now().In(beijingLocation)
-	h.logger.Info("服务器当前时间", zap.Time("current_time", time.Now()))
-	h.logger.Info("当前北京时间", zap.Time("beijing_time", now))
+    // 解析TrafficResetHour字符串
+    var resetHour, resetMinute int  // 删除了 resetSecond
+    h.userManager.caddyfileMu.RLock()
+    if strings.Contains(h.userManager.config.TrafficResetHour, ":") {
+        // 如果是"HH:MM:SS"格式，则解析出时、分
+        parts := strings.Split(h.userManager.config.TrafficResetHour, ":")
+        resetHour, _ = strconv.Atoi(parts[0])
+        resetMinute, _ = strconv.Atoi(parts[1])
+        // 删除了秒的解析，因为cron任务不需要秒级精度
+    } else {
+        // 如果是整数格式，则直接转换为整数
+        resetHour, _ = strconv.Atoi(h.userManager.config.TrafficResetHour)
+    }
+    h.userManager.caddyfileMu.RUnlock()
 
-	//解析 trafficResetHour 字符串 -之前保存的TrafficResetHour为北京时间
-	var resetHour, resetMinute, resetSecond int
-	if strings.Contains(h.userManager.config.TrafficResetHour, ":") {
-		//如果是"HH:MM:SS"格式,则解析出时、分、秒
-		parts := strings.Split(h.userManager.config.TrafficResetHour, ":")
-		resetHour, _ = strconv.Atoi(parts[0])
-		resetMinute, _ = strconv.Atoi(parts[1])
-		if len(parts) > 2 {
-			resetSecond, _ = strconv.Atoi(parts[2])
-		}
-	} else {
-		resetHour, _ = strconv.Atoi(h.userManager.config.TrafficResetHour)
-	}
+    // 直接使用解析出的时间，无需时区转换
+    hour := resetHour
+    minute := resetMinute
 
-	// 计算下一次的北京时间凌晨4点
-	beijingTarget := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMinute, resetSecond, 0, beijingLocation)
-	/*if now.After(beijingTarget) {
-		// 如果当前时间已经超过今天的凌晨4点，则计算下一天的凌晨4点
-		beijingTarget = beijingTarget.AddDate(0, 0, 1)
-	}//*/
-	h.logger.Info(fmt.Sprintf("下一次北京时间重置流量的时间点"), zap.Any("beijingTarget", beijingTarget))
+    h.logger.Info("定时任务设置", 
+        zap.Int("hour", hour), 
+        zap.Int("minute", minute),
+        zap.String("timezone", "Asia/Shanghai (系统时区)"))
 
-	// 将北京时间凌晨4点转换为本地时间
-	localTarget := beijingTarget.In(time.Local)
-	hour := localTarget.Hour()
-	minute := localTarget.Minute()
-	h.logger.Info(fmt.Sprintf("下一次北京时间重置流量的时间点等于本地时间"), zap.Any("localTarget", localTarget))
-	h.logger.Info("Cron schedule", zap.String("schedule", fmt.Sprintf("%02d %02d * * *", minute, hour)))
+    // 设置每天在指定时间执行任务
+    var taskErr error // 声明一个变量用于保存任务执行过程中的错误
+    _, err := s.NewJob(
+        gocron.CronJob(
+            fmt.Sprintf("%02d %02d * * *", minute, hour), // 分钟 小时 * * *
+            false,
+        ),
+        gocron.NewTask(func() error {
 
-	// 设置每天在计算出的时间执行任务
-	var taskErr error // 声明一个变量用于保存任务执行过程中的错误
-	_, err := s.NewJob(
-		gocron.CronJob(
-			fmt.Sprintf("%02d %02d * * *", minute, hour), //"%d %d * * *"	"*/20 * * * *", //
-			false,
-		),
-		gocron.NewTask(func() error {
+            err := h.updateUserTotalTrafficAtomic()
+            if err != nil {
+                h.logger.Error("更新总流量失败", zap.Error(err))
+                taskErr = err
+                return err
+            }
 
-			err := h.updateUserTotalTrafficAtomic()
-			if err != nil {
-				h.logger.Error("更新总流量失败", zap.Error(err))
-				taskErr = err
-				return err
-			}
+            if h.userManager.config.UserTrafficCheckLevel < 2 {
+                h.updateCaddyfile()
+            }
+            //等待更新总流量完成后,执行复制和清空操作
+            err = h.copyAndResetTodayTraffic()
+            if err != nil {
+                h.logger.Error("复制和清空今日流量失败", zap.Error(err))
+                taskErr = err
+            }
 
-			if h.userManager.config.UserTrafficCheckLevel < 2 {
-				h.updateCaddyfile()
-			}
-			//等待更新总流量完成后,执行复制和清空操作
-			err = h.copyAndResetTodayTraffic()
-			if err != nil {
-				h.logger.Error("复制和清空今日流量失败", zap.Error(err))
-				taskErr = err
-			}
+            return nil
+        }),
+    )
+    if err != nil {
+        h.logger.Error("设置定时任务失败", zap.Error(err))
+    }
 
-			return nil
-		}),
-	)
-	if err != nil {
-		h.logger.Error("设置定时任务失败", zap.Error(err))
-	}
+    //设置N小时执行一次的任务
+    if h.userManager.config.UserTrafficCheckLevel == 2 {
+        _, err := s.NewJob(
+            gocron.CronJob(
+                fmt.Sprintf("0 */%02d * * *", h.userManager.config.TaskExecutionHours),
+                false,
+            ),
+            gocron.NewTask(func() error {
+                h.logger.Info("开始检查流量任务...")
+                err := h.updateUserTotalTrafficAtomic()
+                if err != nil {
+                    h.logger.Error("更新总流量失败", zap.Error(err))
+                    taskErr = err
+                    return err
+                }
+                h.updateCaddyfile()
 
-	//设置N小时执行一次的任务
-	if h.userManager.config.UserTrafficCheckLevel == 2 {
-		_, err := s.NewJob(
-			gocron.CronJob(
-				fmt.Sprintf("0 */%02d * * *", h.userManager.config.TaskExecutionHours),
-				false,
-			),
-			gocron.NewTask(func() error {
-				h.logger.Info("开始检查流量任务...")
-				err := h.updateUserTotalTrafficAtomic()
-				if err != nil {
-					h.logger.Error("更新总流量失败", zap.Error(err))
-					taskErr = err
-					return err
-				}
-				h.updateCaddyfile()
+                return nil
+            }),
+        )
+        if err != nil {
+            h.logger.Error("设置N小时执行检查流量任务失败", zap.Error(err))
+        }
+    }
 
-				return nil
-			}),
-		)
-		if err != nil {
-			h.logger.Error("设置N小时执行检查流量任务失败", zap.Error(err))
-		}
-	}
+    // 开始运行调度器
+    s.Start()
 
-	// 开始运行调度器
-	s.Start()
-
-	if taskErr != nil {
-		return taskErr //如taskErr不为nil,则说明作二务执行过程中发生了错误,返回该错误
-	}
-	h.logger.Info("设置任务成功")
-	return nil
+    if taskErr != nil {
+        return taskErr //如taskErr不为nil,则说明任务执行过程中发生了错误,返回该错误
+    }
+    h.logger.Info("设置任务成功")
+    return nil
 }
 
 func (h *Handler) updateUserTrafficForUser(username string) error {
@@ -1812,10 +1802,7 @@ func (h *Handler) GetServiceAreaMetrics(w http.ResponseWriter, r *http.Request) 
 					h.userManager.config.MonthlyRestartDay = localtime.Day()
 
 					//将时间戳转换为北京时间
-					beijingLocation, _ := time.LoadLocation("Asia/Shanghai")
-					date := time.Unix(int64(timestamp), 0).In(beijingLocation)
-					//提取北京时间的小时和分钟、秒钟,并格式化为"HH:MM:SS"的字符串
-					h.userManager.config.TrafficResetHour = fmt.Sprintf("%02d:%02d:%02d", date.Hour(), date.Minute(), date.Second())
+					h.userManager.config.TrafficResetHour = fmt.Sprintf("%02d:%02d:%02d",localtime.Hour(), localtime.Minute(), localtime.Second())
 
 					err = saveConfig(configPath, h.userManager.config)
 					if err != nil {
@@ -2641,49 +2628,72 @@ func (h *Handler) ServeRootLoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) calculateResetTimes() (nextDailyReset, nextMonthlyReset time.Time) {
-	//获取服务器时区
-	serverLocation := time.Now().Location()
+    // 直接使用当前系统时间（已设置为北京时间）
+    now := time.Now()
 
-	//获取北京时区
-	beijingLocation, _ := time.LoadLocation("Asia/Shanghai")
-	//获取当前北京时间
-	nowBeijing := time.Now().In(beijingLocation)
+    // 解析TrafficResetHour字符串
+    var resetHour, resetMinute, resetSecond int
+    h.userManager.caddyfileMu.RLock()
+    if strings.Contains(h.userManager.config.TrafficResetHour, ":") {
+        // 如果是"HH:MM:SS"格式，则解析出时、分、秒
+        parts := strings.Split(h.userManager.config.TrafficResetHour, ":")
+        resetHour, _ = strconv.Atoi(parts[0])
+        resetMinute, _ = strconv.Atoi(parts[1])
+        if len(parts) > 2 {
+            resetSecond, _ = strconv.Atoi(parts[2])
+        }
+    } else {
+        // 如果是整数格式，则直接转换为整数
+        resetHour, _ = strconv.Atoi(h.userManager.config.TrafficResetHour)
+    }
+    monthlyRestartDay := h.userManager.config.MonthlyRestartDay
+    h.userManager.caddyfileMu.RUnlock()
 
-	//解析TrafficResetHour字符串
-	var resetHour, resetMinute, resetSecond int
-	h.userManager.caddyfileMu.RLock()
-	if strings.Contains(h.userManager.config.TrafficResetHour, ":") {
-		//如果是"HH:MM:SS"格式,则解析出时、分、秒
-		parts := strings.Split(h.userManager.config.TrafficResetHour, ":")
-		resetHour, _ = strconv.Atoi(parts[0])
-		resetMinute, _ = strconv.Atoi(parts[1])
-		if len(parts) > 2 {
-			resetSecond, _ = strconv.Atoi(parts[2])
-		}
-	} else {
-		//如果是整数格式,则直接转换为整数
-		resetHour, _ = strconv.Atoi(h.userManager.config.TrafficResetHour)
-	}
+    // 计算今天的重置时间（系统时区，即北京时间）
+    today := now.Truncate(24 * time.Hour)
+    todayReset := today.Add(time.Duration(resetHour)*time.Hour + 
+        time.Duration(resetMinute)*time.Minute + 
+        time.Duration(resetSecond)*time.Second)
 
-	//计算下一次北京时间的每日重置时间
-	nextDailyReset = time.Date(nowBeijing.Year(), nowBeijing.Month(), nowBeijing.Day(), resetHour, resetMinute, resetSecond, 0, beijingLocation)
-	if nowBeijing.After(nextDailyReset) {
-		nextDailyReset = nextDailyReset.AddDate(0, 0, 1)
-	}
+    // 计算下次每日重置时间
+    if now.Before(todayReset) {
+        nextDailyReset = todayReset
+    } else {
+        nextDailyReset = todayReset.Add(24 * time.Hour)
+    }
 
-	//将北京时间的每日重置时间转换为服务器当地时间
-	NextservertRestTime := nextDailyReset.In(serverLocation)
-	//计算下一次服务器时间的每日重置时间
-	nextMonthlyResetServer := time.Date(NextservertRestTime.Year(), NextservertRestTime.Month(), h.userManager.config.MonthlyRestartDay, NextservertRestTime.Hour(), NextservertRestTime.Minute(), NextservertRestTime.Second(), 0, serverLocation)
-	h.userManager.caddyfileMu.RUnlock()
-	//将服务器每月重置时间转换为北京时间
-	nextMonthlyReset = nextMonthlyResetServer.In(beijingLocation)
+    // 计算下次月度重置时间
+    currentYear, currentMonth, _ := now.Date()
+    
+    // 尝试当月的重置日期
+    monthlyResetThisMonth := time.Date(currentYear, currentMonth, monthlyRestartDay, 
+        resetHour, resetMinute, resetSecond, 0, now.Location())
+    
+    if now.Before(monthlyResetThisMonth) {
+        nextMonthlyReset = monthlyResetThisMonth
+    } else {
+        // 如果当月的重置时间已过，计算下个月的重置时间
+        nextMonth := currentMonth + 1
+        nextYear := currentYear
+        if nextMonth > 12 {
+            nextMonth = 1
+            nextYear++
+        }
+        
+        // 处理月末日期（如31号在2月不存在的情况）
+        nextMonthlyReset = time.Date(nextYear, nextMonth, monthlyRestartDay, 
+            resetHour, resetMinute, resetSecond, 0, now.Location())
+        
+        // 如果日期无效（如2月31日），调整到该月最后一天
+        if nextMonthlyReset.Month() != nextMonth {
+            // 获取该月的最后一天
+            lastDayOfMonth := time.Date(nextYear, nextMonth+1, 0, 
+                resetHour, resetMinute, resetSecond, 0, now.Location())
+            nextMonthlyReset = lastDayOfMonth
+        }
+    }
 
-	if nowBeijing.After(nextMonthlyReset) {
-		nextMonthlyReset = nextMonthlyReset.AddDate(0, 1, 0)
-	}
-
-	return nextDailyReset, nextMonthlyReset
+    return nextDailyReset, nextMonthlyReset
 }
 
 func (h *Handler) ServeUserConfigPage(w http.ResponseWriter, r *http.Request) {
