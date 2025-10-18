@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户配置管理 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <script src="/static/js/timeformat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .admin-page {
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #312e81 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .admin-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 20s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            padding: 2rem 0;
+        }
+        .header-section {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: white;
+        }
+        .header-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .header-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        .navigation-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .content-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 2rem;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .table-container {
+            background: white;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th {
+            background: #f8fafc;
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .data-table td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .data-table tr:hover {
+            background-color: #f8fafc;
+        }
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .time-info {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            color: #ef4444;
+        }
+        .time-info-item {
+            margin-bottom: 0.5rem;
+        }
+        .time-info-item:last-child {
+            margin-bottom: 0;
+        }
+        .stats-value {
+            font-weight: 600;
+            color: #1e40af;
+        }
+        .user-subsection {
+            margin-bottom: 1.5rem;
+        }
+        .user-subsection h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        /* 响应式表格 */
+        @media (max-width: 768px) {
+            .table-container {
+                overflow-x: auto;
+            }
+            .data-table {
+                min-width: 600px;
+            }
+            .navigation-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            .navigation-buttons .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        /* 流量进度条效果 */
+        .traffic-cell {
+            position: relative;
+            background: linear-gradient(to right, rgba(59, 130, 246, 0.1) 0%, transparent 0%);
+            transition: background 0.3s ease;
+        }
+        .traffic-cell.high-usage {
+            background: linear-gradient(to right, rgba(239, 68, 68, 0.2) 0%, transparent 0%);
+        }
+    </style>
+</head>
+<body class="admin-page">
+    <div class="main-container">
+        <div class="container">
+            <div class="header-section">
+                <h1 class="header-title">
+                    <i class="fas fa-cogs"></i> 用户配置管理
+                </h1>
+                <p class="header-subtitle">监控系统状态、用户在线情况和流量使用情况</p>
+            </div>
+
+            <div class="navigation-buttons">
+                <a href="/admin/userlist" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> 返回用户列表
+                </a>
+                <a href="/admin/sysinfo" class="btn btn-secondary">
+                    <i class="fas fa-server"></i> 系统数据
+                </a>
+            </div>
+
+            <!-- 有效期信息 -->
+            <div class="content-card">
+                <h2 class="section-title">
+                    <i class="fas fa-calendar-alt"></i> 用户有效期
+                </h2>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-user"></i> 用户名</th>
+                                <th><i class="fas fa-clock"></i> 到期时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $username, $expiry := .UserExpiry}}
+                            <tr>
+                                <td class="stats-value">{{$username}}</td>
+                                <td><span class="spexpiry">{{$expiry}}</span></td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 最大客户端限制 -->
+            <div class="content-card">
+                <h2 class="section-title">
+                    <i class="fas fa-mobile-alt"></i> 最大客户端限制
+                </h2>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-user"></i> 用户名</th>
+                                <th><i class="fas fa-devices"></i> 最大客户端数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $username, $maxIPs := .UserIPLimits}}
+                            <tr>
+                                <td class="stats-value">{{$username}}</td>
+                                <td><span class="badge badge-primary">{{$maxIPs}}</span></td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 在线用户信息 -->
+            {{range $username, $ips := .ActiveIPs}}
+            <div class="content-card">
+                <h2 class="section-title">
+                    <i class="fas fa-wifi"></i> 在线用户: {{$username}}
+                </h2>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-network-wired"></i> IP地址</th>
+                                <th><i class="fas fa-clock"></i> 最近活跃时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $ip, $lastActive := $ips}}
+                            <tr>
+                                <td><span class="showIP"><i class="fas fa-globe"></i> {{$ip}}</span></td>
+                                <td><span class="lastActive"><i class="fas fa-history"></i> {{$lastActive}}</span></td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {{end}}
+
+            <!-- 实时流量 -->
+            <div class="content-card">
+                <h2 class="section-title">
+                    <i class="fas fa-tachometer-alt"></i> 实时流量监控
+                </h2>
+                <div class="table-container">
+                    <table id="realTimeTrafficTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-user"></i> 用户名</th>
+                                <th><i class="fas fa-exchange-alt"></i> 当前流量</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $username, $traffic := .UserTraffic}}
+                            <tr>
+                                <td class="stats-value">{{$username}}</td>
+                                <td><span class="spantraffic" data-value="{{$traffic}}"><i class="fas fa-chart-line"></i> {{$traffic}}</span></td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 流量详情 -->
+            <div class="content-card">
+                <h2 class="section-title">
+                    <i class="fas fa-chart-bar"></i> 流量详情统计
+                </h2>
+
+                <div class="time-info">
+                    <div class="time-info-item">
+                        <i class="fas fa-sync-alt"></i>
+                        <strong>每日重置时间:</strong> <span class="utc-plus-8" data-value="{{.NextDailyRest}}">{{.NextDailyRest}}</span>
+                    </div>
+                    <div class="time-info-item">
+                        <i class="fas fa-calendar-sync"></i>
+                        <strong>月流量重置时间:</strong> <span class="utc-plus-8" data-value="{{.NextResetTime}}">{{.NextResetTime}}</span>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="trafficDetailsTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-user"></i> 帐号</th>
+                                <th><i class="fas fa-tag"></i> 呢称</th>
+                                <th><i class="fas fa-calendar-day"></i> 今天</th>
+                                <th><i class="fas fa-calendar"></i> 昨天</th>
+                                <th><i class="fas fa-calendar-week"></i> 当月</th>
+                                <th><i class="fas fa-calendar-alt"></i> 上月</th>
+                                <th><i class="fas fa-database"></i> 总量</th>
+                                <th><i class="fas fa-piggy-bank"></i> 月剩额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $username, $tagTraffic := .TrafficDetails}}
+                            {{range $tag, $traffic := $tagTraffic}}
+                            <tr>
+                                <td class="stats-value">{{$username}}</td>
+                                <td><span class="badge badge-secondary">{{$tag}}</span></td>
+                                <td class="traffic-cell"><span class="spantraffic" data-value="{{$traffic.TodayTraffic}}">{{$traffic.TodayTraffic}}</span></td>
+                                <td class="traffic-cell"><span class="spantraffic" data-value="{{$traffic.YesterdayTraffic}}">{{$traffic.YesterdayTraffic}}</span></td>
+                                <td class="traffic-cell"><span class="spantraffic" data-value="{{$traffic.CurrentMonthTraffic}}">{{$traffic.CurrentMonthTraffic}}</span></td>
+                                <td class="traffic-cell"><span class="spantraffic" data-value="{{$traffic.LastMonthTraffic}}">{{$traffic.LastMonthTraffic}}</span></td>
+                                <td class="traffic-cell"><span class="spantraffic" data-value="{{$traffic.TotalTraffic}}">{{$traffic.TotalTraffic}}</span></td>
+                                <td class="traffic-cell"><span class="spantraffic" data-value="{{$traffic.MonthlyLimit}}">{{$traffic.MonthlyLimit}}</span></td>
+                            </tr>
+                            {{end}}
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 用户动作日志 -->
+            {{if .EnableAccessLog}}
+            {{range $username, $accessLog := .UserAccessLog}}
+            <div class="content-card">
+                <h2 class="section-title">
+                    <i class="fas fa-history"></i> 用户动作日志: {{$username}}
+                </h2>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-external-link-alt"></i> 目标</th>
+                                <th><i class="fas fa-info-circle"></i> 备注</th>
+                                <th><i class="fas fa-clock"></i> 时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $entry := $accessLog.Entries}}
+                            {{if and $entry $entry.IP}}
+                            <tr>
+                                <td><span class="spanhost" data-original-host="{{$entry.Host}}"><i class="fas fa-link"></i> {{$entry.Host}}</span></td>
+                                <td><span class="spanagent"><i class="fas fa-browser"></i> {{$entry.UserAgent}}</span></td>
+                                <td><span class="accessTime"><i class="fas fa-hourglass-half"></i> {{$entry.Time}}</span></td>
+                            </tr>
+                            {{end}}
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {{end}}
+            {{end}}
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async function () {
+        const realTimeTraffic = {};
+
+        // 从实时流量中收集流量数据
+        document.querySelectorAll('#realTimeTrafficTable tbody tr').forEach(row => {
+            const username = row.cells[0].textContent.trim();
+            const traffic = parseInt(row.querySelector('.spantraffic').dataset.value, 10);
+            realTimeTraffic[username] = traffic;
+        });
+
+        // 更新流量详情表
+        document.querySelectorAll('#trafficDetailsTable tbody tr').forEach(row => {
+            const username = row.cells[0].textContent.trim();
+            const todayTrafficSpan = row.cells[2].querySelector('.spantraffic');
+            const currentMonthTrafficSpan = row.cells[4].querySelector('.spantraffic');
+            const totalTrafficSpan = row.cells[6].querySelector('.spantraffic');
+            const monthlyLimitSpan = row.cells[7].querySelector('.spantraffic');
+
+            const todayTrafficValue = parseInt(todayTrafficSpan.dataset.value, 10);
+            const currentMonthTrafficValue = parseInt(currentMonthTrafficSpan.dataset.value, 10);
+            const totalTrafficValue = parseInt(totalTrafficSpan.dataset.value, 10);
+            const monthlyLimitValue = parseInt(monthlyLimitSpan.dataset.value, 10);
+
+            if (realTimeTraffic[username] !== undefined) {
+                const newTrafficValue = todayTrafficValue + realTimeTraffic[username];
+                todayTrafficSpan.dataset.value = newTrafficValue;
+                todayTrafficSpan.textContent = newTrafficValue;
+
+                // 更新当月流量
+                const newCurrentMonthTraffic = currentMonthTrafficValue + realTimeTraffic[username];
+                currentMonthTrafficSpan.dataset.value = newCurrentMonthTraffic;
+                currentMonthTrafficSpan.textContent = newCurrentMonthTraffic;
+
+                // 更新总量
+                const newTotalTraffic = totalTrafficValue + realTimeTraffic[username];
+                totalTrafficSpan.dataset.value = newTotalTraffic;
+                totalTrafficSpan.textContent = newTotalTraffic;
+
+                // 更新月剩额
+                if (monthlyLimitValue !== -1) {
+                    const newMonthlyLimitValue = monthlyLimitValue - realTimeTraffic[username];
+                    monthlyLimitSpan.dataset.value = newMonthlyLimitValue.toString();
+                    monthlyLimitSpan.textContent = newMonthlyLimitValue.toString();
+                }
+            }
+        });
+
+        // 流量进度条的前期数据
+        const trafficTable = document.querySelector('#trafficDetailsTable');
+        const trafficTableBody = trafficTable.querySelector('tbody');
+        const trafficTableHeaders = trafficTable.querySelectorAll('th');
+
+        // 将流量数据转换为数字并存储在一个数组中
+        const trafficData = Array.from(trafficTableBody.rows).map(row => {
+            const cells = row.cells;
+            return {
+                username: cells[0].textContent,
+                tag: cells[1].textContent,
+                today: parseFloat(cells[2].querySelector('span').getAttribute('data-value')),
+                yesterday: parseFloat(cells[3].querySelector('span').getAttribute('data-value')),
+                currentMonth: parseFloat(cells[4].querySelector('span').getAttribute('data-value')),
+                lastMonth: parseFloat(cells[5].querySelector('span').getAttribute('data-value')),
+                total: parseFloat(cells[6].querySelector('span').getAttribute('data-value')),
+                monthlylimit: parseFloat(cells[7].querySelector('span').getAttribute('data-value')),
+                row: row
+            };
+        });
+
+        // 处理时间显示
+        const lastActiveSpans = document.querySelectorAll('.lastActive');
+        lastActiveSpans.forEach(function (span) {
+            span.textContent = timeDifferenceDescription(span.textContent);
+        });
+
+        const spexpiry = document.querySelectorAll('.spexpiry');
+        spexpiry.forEach(function (span) {
+            span.textContent = timeDifferenceDescription(span.textContent);
+        });
+
+        const spantraffic = document.querySelectorAll('.spantraffic');
+        spantraffic.forEach(function (span) {
+            span.textContent = formatFileSize(span.textContent);
+        });
+
+        // 最近访问时间
+        const accessTimeSpans = document.querySelectorAll('.accessTime');
+        accessTimeSpans.forEach(function (span) {
+            span.textContent = timeDifferenceDescription(span.textContent);
+        });
+
+        // 返回北京时间
+        document.querySelectorAll('.utc-plus-8').forEach(element => {
+            const originalTime = element.textContent;
+            element.textContent = convertToBeijingTime(originalTime);
+        });
+
+        // 添加流量使用量背景色指示
+        function updateTrafficIndicators() {
+            document.querySelectorAll('#trafficDetailsTable tbody tr').forEach(row => {
+                const monthlyLimitCell = row.cells[7];
+                const monthlyLimitValue = parseInt(monthlyLimitCell.querySelector('.spantraffic').dataset.value, 10);
+
+                if (monthlyLimitValue > 0) {
+                    const currentMonthValue = parseInt(row.cells[4].querySelector('.spantraffic').dataset.value, 10);
+                    const usagePercentage = (currentMonthValue / monthlyLimitValue) * 100;
+
+                    if (usagePercentage >= 80) {
+                        monthlyLimitCell.classList.add('high-usage');
+                    }
+                }
+            });
+        }
+
+        updateTrafficIndicators();
+    });
+</script>
+
+<script src="/static/js/hostDescriptionMapper.js"></script>
+</body>
+</html>

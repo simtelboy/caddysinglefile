@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/static/js/timeformat.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .users-page {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+        .users-page::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: backgroundMove 30s linear infinite;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(40px, 40px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            padding: var(--space-xl) 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-xl);
+            padding: var(--space-xl);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-xl);
+            margin-bottom: var(--space-md);
+        }
+        .stat-icon.blue { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
+        .stat-icon.green { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .stat-icon.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
+        .stat-icon.orange { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .stat-value {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--space-xs);
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+        }
+        .stat-change {
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            margin-top: var(--space-sm);
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+        }
+        .stat-change.positive { color: var(--success-color); }
+        .stat-change.negative { color: var(--error-color); }
+        .content-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-xl);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: var(--space-xl);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+            background: rgba(248, 250, 252, 0.8);
+        }
+        .card-title {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+        .card-actions {
+            display: flex;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+            max-width: 400px;
+        }
+        .search-input {
+            width: 100%;
+            padding: var(--space-sm) var(--space-md) var(--space-sm) calc(var(--space-md) + var(--space-lg) + var(--space-sm));
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            background: var(--bg-primary);
+            transition: all 0.2s ease;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .search-icon {
+            position: absolute;
+            left: var(--space-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+        }
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .users-table th {
+            background: var(--bg-secondary);
+            padding: var(--space-md) var(--space-lg);
+            text-align: left;
+            font-weight: 600;
+            font-size: var(--font-size-sm);
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .users-table td {
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        .users-table tr:hover {
+            background: var(--bg-secondary);
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: var(--font-size-lg);
+            text-transform: uppercase;
+        }
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .user-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-xs);
+        }
+        .user-tags {
+            display: flex;
+            gap: var(--space-xs);
+            flex-wrap: wrap;
+        }
+        .badge {
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+        }
+        .badge-primary { background: rgba(59, 130, 246, 0.1); color: var(--primary-color); }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success-color); }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
+        .badge-error { background: rgba(239, 68, 68, 0.1); color: var(--error-color); }
+        .ip-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .ip-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-xs) 0;
+            font-size: var(--font-size-sm);
+        }
+        .ip-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ip-status.online { background: var(--success-color); }
+        .ip-status.offline { background: var(--text-tertiary); }
+        .ip-address {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        .ip-time {
+            color: var(--text-tertiary);
+            font-size: var(--font-size-xs);
+        }
+        .traffic-info {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+        .traffic-item {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+        .traffic-label {
+            font-size: var(--font-size-xs);
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .traffic-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            position: relative;
+        }
+        .traffic-progress {
+            height: 100%;
+            border-radius: var(--radius-full);
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        .traffic-progress.monthly { background: linear-gradient(90deg, var(--primary-color), var(--primary-light)); }
+        .traffic-progress.current { background: linear-gradient(90deg, var(--success-color), var(--info-color)); }
+        .actions-cell {
+            display: flex;
+            gap: var(--space-sm);
+            justify-content: center;
+        }
+        .btn-icon {
+            padding: var(--space-sm);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-icon:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+        }
+        .status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+        .status-expired {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error-color);
+        }
+        .expired-row {
+            background: rgba(239, 68, 68, 0.05) !important;
+        }
+        .checkbox-cell {
+            width: 40px;
+        }
+        .bulk-actions {
+            display: flex;
+            gap: var(--space-sm);
+            align-items: center;
+            margin-left: auto;
+        }
+        @media (max-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            }
+            .card-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-box {
+                max-width: none;
+            }
+            .bulk-actions {
+                margin-left: 0;
+                margin-top: var(--space-md);
+            }
+        }
+        @media (max-width: 768px) {
+            .users-table {
+                font-size: var(--font-size-sm);
+            }
+            .users-table th,
+            .users-table td {
+                padding: var(--space-md);
+            }
+            .actions-cell {
+                flex-direction: column;
+            }
+            .traffic-info {
+                gap: var(--space-xs);
+            }
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .loading-content {
+            background: white;
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            text-align: center;
+        }
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto var(--space-md);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="users-page">
+    <div class="main-container">
+        <div class="container">
+            <!-- 统计卡片 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">👥</div>
+                    <div class="stat-value" id="totalUsers">0</div>
+                    <div class="stat-label">总用户数</div>
+                    <div class="stat-change positive">
+                        <span>↑</span>
+                        <span>活跃用户: <span id="activeUsers">0</span></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">🌐</div>
+                    <div class="stat-value" id="totalConnections">0</div>
+                    <div class="stat-label">活跃连接</div>
+                    <div class="stat-change positive">
+                        <span>↑</span>
+                        <span>实时在线</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">📊</div>
+                    <div class="stat-value" id="totalTraffic">0 GB</div>
+                    <div class="stat-label">月流量</div>
+                    <div class="stat-change positive">
+                        <span>↑</span>
+                        <span>本月统计</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">⏰</div>
+                    <div class="stat-value" id="expiringSoon">0</div>
+                    <div class="stat-label">即将过期</div>
+                    <div class="stat-change negative">
+                        <span>⚠</span>
+                        <span>7天内到期</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 用户列表卡片 -->
+            <div class="content-card">
+                <div class="card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-lg);">
+                        <h2 class="card-title">用户管理</h2>
+                        <div class="card-actions">
+                            <a href="/admin/adduser" class="btn btn-primary">
+                                <span>➕</span>
+                                <span>新增用户</span>
+                            </a>
+                            <a href="/admin/invite" class="btn btn-secondary">
+                                <span>🎟️</span>
+                                <span>邀请码</span>
+                            </a>
+                            <a href="/admin/viewlogs" class="btn btn-outline">
+                                <span>📋</span>
+                                <span>查看日志</span>
+                            </a>
+                            <a href="/admin/userconfig" class="btn btn-outline">
+                                <span>⚙️</span>
+                                <span>用户数据</span>
+                            </a>
+                            <a href="/admin/editadmin" class="btn btn-outline">
+                                <span>🔐</span>
+                                <span>修改密码</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: var(--space-md); align-items: center; margin-top: var(--space-lg); flex-wrap: wrap;">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="search" class="search-input" placeholder="搜索用户名或标签...">
+                        </div>
+                        <div class="bulk-actions">
+                            <button onclick="deleteUsers()" class="btn btn-error">
+                                <span>🗑️</span>
+                                <span>删除选中</span>
+                            </button>
+                            <button onclick="logout()" class="btn btn-ghost">
+                                <span>🚪</span>
+                                <span>退出登录</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th>用户信息</th>
+                                <th>活跃IP</th>
+                                <th>流量统计</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            {{range .Users}}
+                            <tr class="{{if IsExpired .ExpiryDate $.Now}}expired-row{{end}}">
+                                <td class="checkbox-cell">
+                                    <input type="checkbox" value="{{.Username}}" class="user-checkbox">
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: var(--space-md);">
+                                        <div class="user-avatar">{{printf "%.1s" .Username}}</div>
+                                        <div class="user-info">
+                                            <div class="user-name">{{.Username}}</div>
+                                            <div class="user-tags">
+                                                {{if .Tags}}
+                                                    <span class="badge badge-primary">{{.Tags}}</span>
+                                                {{end}}
+                                                <span class="badge {{if IsExpired .ExpiryDate $.Now}}badge-error{{else}}badge-success{{end}}">
+                                                    {{if IsExpired .ExpiryDate $.Now}}已过期{{else}}有效期内{{end}}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <ul class="ip-list">
+                                        {{range .ActiveIPs}}
+                                        <li class="ip-item">
+                                            <span class="ip-status online"></span>
+                                            <div>
+                                                <div class="ip-address">{{.IP}}</div>
+                                                <div class="ip-time">{{.LastActive}}</div>
+                                            </div>
+                                        </li>
+                                        {{else}}
+                                        <li class="ip-item">
+                                            <span class="ip-status offline"></span>
+                                            <div class="ip-address">无活动IP</div>
+                                        </li>
+                                        {{end}}
+                                    </ul>
+                                </td>
+                                <td>
+                                    <div class="traffic-info">
+                                        <div class="traffic-item">
+                                            <div class="traffic-label">
+                                                <span>月流量</span>
+                                                <span>{{.CurrentMonthTraffic}}</span>
+                                            </div>
+                                            <div class="traffic-bar">
+                                                <div class="traffic-progress monthly" style="width: {{.TotalTrafficPercentage}}%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="traffic-item">
+                                            <div class="traffic-label">
+                                                <span>实时流量</span>
+                                                <span>{{.CurrentTraffic}}</span>
+                                            </div>
+                                            <div class="traffic-bar">
+                                                <div class="traffic-progress current" style="width: {{.CurrentTrafficPercentage}}%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display: flex; flex-direction: column; gap: var(--space-xs);">
+                                        <span class="status-indicator {{if IsExpired .ExpiryDate $.Now}}status-expired{{else}}status-active{{end}}">
+                                            {{if IsExpired .ExpiryDate $.Now}}❌ 已过期{{else}}✅ 正常{{end}}
+                                        </span>
+                                        <div style="font-size: var(--font-size-xs); color: var(--text-tertiary);">
+                                            至{{.ExpiryDate.Format "2006-01-02"}}<br>
+                                            限{{.MaxIPs}}设备
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="actions-cell">
+                                        <button onclick="openQRCode('{{.Username}}', '{{.Password}}', '{{.ExpiryDate.Format "2006-01-02"}}','{{.MaxIPs}}')" class="btn-icon" title="查看二维码">
+                                            📱
+                                        </button>
+                                        <button onclick="editUser('{{.Username}}')" class="btn-icon" title="编辑用户">
+                                            ✏️
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: var(--space-2xl); color: var(--text-tertiary);">
+                                    <div>📭</div>
+                                    <div>暂无用户数据</div>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载覆盖层 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div>处理中...</div>
+        </div>
+    </div>
+
+    <script>
+        let domain = '';
+        let port = '';
+
+        // 显示/隐藏加载层
+        function showLoading(show = true) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        // 页面加载时获取服务器信息
+        document.addEventListener('DOMContentLoaded', async function() {
+            showLoading(true);
+            try {
+                const response = await fetch('/admin/get_sysinfo');
+                const data = await response.json();
+                if (data.success) {
+                    domain = data.domain;
+                    port = data.port;
+                } else {
+                    showAlert(`获取系统信息失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching system info:', error);
+                showAlert('网络错误，请稍后重试', 'error');
+            } finally {
+                showLoading(false);
+            }
+
+            // 更新时间显示
+            const lastActiveSpans = document.querySelectorAll('.ip-time');
+            lastActiveSpans.forEach(function (span) {
+                span.textContent = timeDifferenceDescription(span.textContent);
+            });
+
+            // 更新流量显示
+            const trafficValues = document.querySelectorAll('.traffic-label span:last-child');
+            trafficValues.forEach(function (span) {
+                if (span.textContent && span.textContent !== '0') {
+                    span.textContent = formatFileSize(span.textContent);
+                }
+            });
+
+            // 获取IP详情
+            const ipElements = document.querySelectorAll('.ip-address');
+            const ipPromises = Array.from(ipElements).map(async span => {
+                const ipDetails = await fetchIPDetails(span.textContent, true, ['city', 'district', 'isp']);
+                if (ipDetails.includes('<a href=')) {
+                    span.innerHTML = ipDetails;
+                } else {
+                    span.textContent = ipDetails;
+                }
+            });
+
+            await Promise.all(ipPromises);
+
+            // 计算统计数据
+            updateStatistics();
+        });
+
+        // 更新统计数据
+        function updateStatistics() {
+            const rows = document.querySelectorAll('#usersTableBody tr');
+            let totalUsers = 0;
+            let activeUsers = 0;
+            let totalConnections = 0;
+            let expiringSoon = 0;
+
+            rows.forEach(row => {
+                // 跳过"暂无用户数据"的行
+                if (row.querySelector('.user-name') === null) {
+                    return;
+                }
+
+                totalUsers++;
+
+                const isActive = !row.classList.contains('expired-row');
+                if (isActive) activeUsers++;
+
+                const ipItems = row.querySelectorAll('.ip-status.online');
+                totalConnections += ipItems.length;
+
+                // 检查是否即将过期（简单示例）
+                const statusIndicator = row.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    const statusText = statusIndicator.textContent;
+                    if (statusText.includes('正常')) {
+                        // 这里可以添加更复杂的过期时间检查逻辑
+                        expiringSoon++;
+                    }
+                }
+            });
+
+            document.getElementById('totalUsers').textContent = totalUsers;
+            document.getElementById('activeUsers').textContent = activeUsers;
+            document.getElementById('totalConnections').textContent = totalConnections;
+            document.getElementById('expiringSoon').textContent = expiringSoon;
+
+            // 计算总流量（简化计算）
+            const monthlyTraffics = document.querySelectorAll('.traffic-progress.monthly');
+            let totalTrafficGB = 0;
+            monthlyTraffics.forEach(bar => {
+                const width = parseFloat(bar.style.width);
+                totalTrafficGB += width * 0.1; // 简化计算
+            });
+            document.getElementById('totalTraffic').textContent = totalTrafficGB.toFixed(1) + ' GB';
+        }
+
+        // 全选/取消全选
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.user-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        // 打开二维码
+        function openQRCode(username, password, expiry, ips) {
+            const url = `/admin/qrcode?username=${username}&password=${password}&expiry=${expiry}&ips=${ips}&domain=${domain}&port=${port}`;
+            window.open(url, '_blank', 'width=600,height=700');
+        }
+
+        // 编辑用户
+        function editUser(username) {
+            window.location.href = '/admin/edituser?username=' + username;
+        }
+
+        // 显示提示信息
+        function showAlert(message, type = 'error') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                min-width: 300px;
+                animation: slideIn 0.3s ease;
+            `;
+            alertDiv.innerHTML = `
+                <div style="display: flex; align-items: center; gap: var(--space-sm);">
+                    <span>${type === 'error' ? '❌' : '✅'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 3000);
+        }
+
+        // 删除用户
+        function deleteUsers() {
+            const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showAlert('请先选择要删除的用户', 'error');
+                return;
+            }
+
+            const usernames = Array.from(checkboxes).map(checkbox => checkbox.value);
+            if (confirm(`确定要删除以下 ${usernames.length} 个用户吗？\n${usernames.join(', ')}`)) {
+                showLoading(true);
+                fetch('/admin/delete_users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ usernames: usernames })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => { throw new Error(text) });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showAlert(`成功删除 ${usernames.length} 个用户`, 'success');
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        showAlert(`删除失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showAlert(`删除失败: ${error.message}`, 'error');
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                showLoading(true);
+                fetch('/admin/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => { throw new Error(text) });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showAlert('已成功退出登录', 'success');
+                        setTimeout(() => window.location.href = '/admin/login', 1000);
+                    } else {
+                        showAlert(`退出失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showAlert(`退出失败: ${error.message}`, 'error');
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+            }
+        }
+
+        // 搜索功能
+        document.getElementById('search').addEventListener('input', function() {
+            const searchValue = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#usersTableBody tr');
+
+            rows.forEach(row => {
+                // 跳过"暂无用户数据"的行
+                if (row.querySelector('.user-name') === null) {
+                    return;
+                }
+
+                const username = row.querySelector('.user-name').textContent.toLowerCase();
+                const tagsElement = row.querySelector('.user-tags');
+                const tags = tagsElement ? tagsElement.textContent.toLowerCase() : '';
+
+                if (username.includes(searchValue) || tags.includes(searchValue)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // 添加CSS动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

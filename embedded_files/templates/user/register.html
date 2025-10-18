@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户注册 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .register-page {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            position: relative;
+            overflow: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .register-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 25s linear infinite;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .register-container {
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            max-width: 480px;
+            width: 90%;
+        }
+        .register-logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto var(--space-lg);
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: var(--font-size-2xl);
+            font-weight: bold;
+        }
+        .invitation-info {
+            background: linear-gradient(135deg, rgba(240, 147, 251, 0.1), rgba(245, 87, 108, 0.1));
+            border: 1px solid rgba(245, 87, 108, 0.2);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-xl);
+            text-align: center;
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+        .invitation-info strong {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-md);
+        }
+        .password-strength {
+            margin-top: var(--space-sm);
+            height: 4px;
+            background: var(--border-color);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s ease;
+            border-radius: var(--radius-full);
+        }
+        .strength-weak { background: var(--error-color); width: 25%; }
+        .strength-fair { background: var(--warning-color); width: 50%; }
+        .strength-good { background: var(--info-color); width: 75%; }
+        .strength-strong { background: var(--success-color); width: 100%; }
+        .character-count {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            margin-top: var(--space-xs);
+            text-align: right;
+        }
+        .register-footer {
+            text-align: center;
+            margin-top: var(--space-xl);
+            padding-top: var(--space-lg);
+            border-top: 1px solid var(--border-color);
+            font-size: var(--font-size-sm);
+        }
+        .loading-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .btn-loading .loading-spinner {
+            display: inline-block;
+        }
+        .btn-loading .btn-text {
+            display: none;
+        }
+        .alert {
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            margin-bottom: var(--space-lg);
+            border: 1px solid;
+            font-size: var(--font-size-sm);
+            display: none;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+        @media (max-width: 480px) {
+            .register-container {
+                padding: var(--space-xl);
+                margin: var(--space-md);
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="register-page">
+    <div class="register-container">
+        <div class="login-header">
+            <div class="register-logo">CS</div>
+            <h1 class="login-title">创建账户</h1>
+            <p class="login-subtitle">填写以下信息创建您的代理账户</p>
+        </div>
+
+        <div class="invitation-info">
+            <strong>邀请码注册</strong><br>
+            此链接还可注册 <strong>{{.Quantity}}</strong> 个账户<br>
+            有效期至：<strong id="expiry-display"></strong>
+        </div>
+
+        <div id="alert" class="alert alert-error"></div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="username" class="form-label">用户名</label>
+                <div style="position: relative;">
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-input"
+                        style="padding-left: 40px;"
+                        placeholder="请输入用户名（不含空格和中文）"
+                        autocomplete="username"
+                        required
+                    >
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                        👤
+                    </span>
+                    <div class="character-count">
+                        <span id="username-count">0</span>/32 字符
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">密码</label>
+                <div class="password-input-wrapper">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
+                        style="padding-left: 40px; padding-right: 40px;"
+                        placeholder="请输入密码（不含空格和中文）"
+                        autocomplete="new-password"
+                        required
+                    >
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                        🔒
+                    </span>
+                    <button type="button" class="password-toggle" id="togglePassword" tabindex="-1">
+                        👁️
+                    </button>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="strengthBar"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email" class="form-label">邮箱地址</label>
+                    <div style="position: relative;">
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            class="form-input"
+                            style="padding-left: 40px;"
+                            placeholder="your@email.com"
+                            autocomplete="email"
+                            required
+                        >
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                            ✉️
+                        </span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tags" class="form-label">标签</label>
+                    <div style="position: relative;">
+                        <input
+                            type="text"
+                            id="tags"
+                            name="tags"
+                            class="form-input"
+                            style="padding-left: 40px;"
+                            placeholder="自定义标签"
+                        >
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                            🏷️
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="effective-date" class="form-label">有效期至</label>
+                    <input
+                        type="text"
+                        id="effective-date-display"
+                        class="form-input"
+                        readonly
+                        style="background: var(--bg-tertiary);"
+                    >
+                    <input type="hidden" id="effective-date" name="effective_date" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="maximum-client" class="form-label">最大客户端数</label>
+                    <div style="position: relative;">
+                        <input
+                            type="text"
+                            id="maximum-client"
+                            name="maximum_client"
+                            class="form-input"
+                            style="padding-left: 40px; background: var(--bg-tertiary);"
+                            value="{{.MaxIPs}}"
+                            readonly
+                        >
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                        📱
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerBtn">
+                <span class="loading-spinner"></span>
+                <span class="btn-text">创建账户</span>
+            </button>
+
+            <div class="register-footer">
+                <span style="color: var(--text-secondary);">已有账户？</span>
+                <a href="/user/login" class="text-primary" style="text-decoration: none; font-weight: 500;">立即登录</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let actValue;
+
+        // 密码显示/隐藏切换
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.textContent = type === 'password' ? '👁️' : '🙈';
+        });
+
+        // 密码强度检测
+        function checkPasswordStrength(password) {
+            const strengthBar = document.getElementById('strengthBar');
+            let strength = 0;
+
+            if (password.length >= 8) strength += 25;
+            if (/[a-z]/.test(password)) strength += 25;
+            if (/[A-Z]/.test(password)) strength += 25;
+            if (/[0-9]/.test(password)) strength += 25;
+            if (/[^A-Za-z0-9]/.test(password)) strength += 25;
+
+            strengthBar.className = 'password-strength-bar';
+            if (strength <= 25) {
+                strengthBar.classList.add('strength-weak');
+            } else if (strength <= 50) {
+                strengthBar.classList.add('strength-fair');
+            } else if (strength <= 75) {
+                strengthBar.classList.add('strength-good');
+            } else {
+                strengthBar.classList.add('strength-strong');
+            }
+        }
+
+        passwordInput.addEventListener('input', function() {
+            checkPasswordStrength(this.value);
+        });
+
+        // 用户名字符计数
+        const usernameInput = document.getElementById('username');
+        const usernameCount = document.getElementById('username-count');
+
+        usernameInput.addEventListener('input', function() {
+            this.value = this.value.replace(/[\u4E00-\u9FFF]/g, ''); // 移除中文字符
+            this.value = this.value.replace(/\s+/g, ''); // 移除空格
+            usernameCount.textContent = this.value.length;
+        });
+
+        // 显示/隐藏提示信息
+        function showAlert(message, type = 'error') {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <div style="display: flex; align-items: center; gap: ${getComputedStyle(document.documentElement).getPropertyValue('--space-sm')};">
+                    <span>${type === 'error' ? '❌' : '✅'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            alert.style.display = 'block';
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                    alert.style.opacity = '1';
+                }, 300);
+            }, 3000);
+        }
+
+        // 表单验证
+        function validateForm(user) {
+            // 用户名验证
+            if (!user.username || user.username.length < 3) {
+                showAlert('用户名至少需要3个字符', 'error');
+                return false;
+            }
+            if (user.username.length > 32) {
+                showAlert('用户名最多32个字符', 'error');
+                return false;
+            }
+
+            // 密码验证
+            if (!user.password || user.password.length < 6) {
+                showAlert('密码至少需要6个字符', 'error');
+                return false;
+            }
+
+            // 邮箱验证
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!user.email || !emailRegex.test(user.email)) {
+                showAlert('请输入有效的邮箱地址', 'error');
+                return false;
+            }
+
+            // 最大客户端数验证
+            if (isNaN(user.maximum_client) || user.maximum_client <= 0) {
+                showAlert('最大客户端数必须是正整数', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // 页面初始化
+        window.onload = function() {
+            const effectiveDateDisplay = document.getElementById('effective-date-display');
+            const effectiveDateInput = document.getElementById('effective-date');
+            const today = new Date();
+
+            if ({{.ExpiryDays}} > 0) {
+                today.setDate(today.getDate() + {{.ExpiryDays}});
+            } else {
+                today.setDate(today.getDate() - 1);
+            }
+
+            const formattedDate = today.toISOString().split('T')[0];
+            effectiveDateInput.value = formattedDate;
+            effectiveDateDisplay.value = formattedDate;
+
+            // 设置过期时间显示
+            document.getElementById('expiry-display').textContent = formattedDate;
+
+            // 处理URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const act = urlParams.get('act');
+            if (act) {
+                actValue = act;
+            }
+
+            // 处理预填标签
+            const tags = {{.Tags}};
+            if (tags) {
+                const tagsInput = document.getElementById('tags');
+                tagsInput.value = tags;
+                tagsInput.readOnly = true;
+                tagsInput.style.background = 'var(--bg-tertiary)';
+            }
+
+            // 自动聚焦用户名输入框
+            document.getElementById('username').focus();
+        };
+
+        // 表单提交处理
+        document.getElementById('registerForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const registerBtn = document.getElementById('registerBtn');
+            const formData = new FormData(this);
+            const user = {};
+
+            // 添加HMAC码
+            if (typeof actValue !== 'undefined' && actValue !== null) {
+                user.hmac_code = actValue;
+            }
+
+            formData.forEach((value, key) => {
+                user[key] = value;
+            });
+
+            // 数据转换
+            const date = new Date(user.effective_date);
+            user.effective_date = date.toISOString();
+            user.maximum_client = parseInt(user.maximum_client, 10);
+
+            // 表单验证
+            if (!validateForm(user)) {
+                return;
+            }
+
+            // 显示加载状态
+            registerBtn.disabled = true;
+            registerBtn.classList.add('btn-loading');
+
+            try {
+                const response = await fetch('/inviter_register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify(user)
+                });
+
+                let data;
+                const responseText = await response.text();
+
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(responseText || '服务器响应错误');
+                }
+
+                if (data.success) {
+                    showAlert('注册成功！正在跳转...', 'success');
+
+                    setTimeout(() => {
+                        if (actValue === undefined) {
+                            // 没有邀请码，跳转到管理员二维码页面
+                            window.location.href = `/admin/qrcode?username=${data.username}&password=${data.password}&expiry=${data.expiry}&ips=${data.ips}&domain=${data.domain}&port=${data.port}`;
+                        } else {
+                            // 有邀请码，跳转到用户登录页面
+                            window.location.href = '/user/login';
+                        }
+                    }, 2000);
+                } else {
+                    showAlert(data.message || '注册失败', 'error');
+                }
+            } catch (error) {
+                console.error('注册错误:', error);
+                showAlert(error.message || '网络错误，请稍后重试', 'error');
+            } finally {
+                // 恢复按钮状态
+                registerBtn.disabled = false;
+                registerBtn.classList.remove('btn-loading');
+            }
+        });
+
+        // 回车键提交
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && event.ctrlKey) {
+                document.getElementById('registerForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

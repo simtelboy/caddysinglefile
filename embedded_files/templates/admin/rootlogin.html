@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>超级管理员登录</title>
+  <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      max-width: 400px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .form-group input {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin: 0 auto;
+      display: block;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>管理员登录</h1>
+  <form id="form-login">
+    <div class="form-group">
+      <label for="username">用户名</label>
+      <input type="text" id="username" class="form-control" required>
+    </div>
+    <div class="form-group">
+      <label for="password">密码</label>
+      <input type="password" id="password" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">登录</button>
+  </form>
+</div>
+<script>
+  document.getElementById('form-login').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    fetch('/admin/root_login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                window.location.href = '/admin/super';
+              } else {
+                alert('登录失败: ' + data.message);
+              }
+            });
+  });
+</script>
+</body>
+</html>

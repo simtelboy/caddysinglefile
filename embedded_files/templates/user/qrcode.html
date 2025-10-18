@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码登录配置 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .qrcode-page {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+        .qrcode-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 25s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1200px;
+            padding: var(--space-xl);
+        }
+        .header-section {
+            text-align: center;
+            margin-bottom: var(--space-2xl);
+            color: white;
+        }
+        .header-title {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            margin-bottom: var(--space-md);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-subtitle {
+            font-size: var(--font-size-lg);
+            opacity: 0.9;
+            font-weight: 400;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-xl);
+            margin-bottom: var(--space-xl);
+        }
+        .qrcode-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-xl);
+            padding: var(--space-2xl);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .qrcode-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .qrcode-card:hover::before {
+            opacity: 1;
+        }
+        .qrcode-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+        }
+        .platform-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto var(--space-lg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-3xl);
+            transition: all 0.3s ease;
+        }
+        .platform-icon.android {
+            background: linear-gradient(135deg, #3ddc84, #00c853);
+            color: white;
+        }
+        .platform-icon.ios {
+            background: linear-gradient(135deg, #007aff, #5856d6);
+            color: white;
+        }
+        .qrcode-card:hover .platform-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+        .platform-name {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-md);
+        }
+        .qrcode-description {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: var(--space-xl);
+            padding: var(--space-md);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--primary-color);
+        }
+        .qrcode-container {
+            display: inline-block;
+            padding: var(--space-lg);
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            margin-bottom: var(--space-lg);
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        .qrcode-container:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+        }
+        .download-info {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            margin-top: var(--space-md);
+            padding: var(--space-sm) var(--space-md);
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .instruction {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-xl);
+            padding: var(--space-xl) var(--space-2xl);
+            color: white;
+            font-size: var(--font-size-md);
+            line-height: 1.8;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .instruction strong {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+        .user-info {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg) var(--space-xl);
+            margin-bottom: var(--space-xl);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        .user-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+        }
+        .user-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-md);
+            margin-top: var(--space-md);
+        }
+        .user-detail-item {
+            padding: var(--space-sm) var(--space-md);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--primary-color);
+        }
+        .detail-label {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-xs);
+        }
+        .detail-value {
+            font-size: var(--font-size-sm);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .loading-text {
+            color: white;
+            margin-top: var(--space-lg);
+            font-size: var(--font-size-md);
+            font-weight: 500;
+        }
+
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: var(--space-lg) var(--space-md);
+            }
+            .header-title {
+                font-size: var(--font-size-2xl);
+            }
+            .qrcode-card {
+                padding: var(--space-xl);
+            }
+            .user-details {
+                grid-template-columns: 1fr;
+            }
+            .instruction {
+                padding: var(--space-lg);
+                font-size: var(--font-size-sm);
+            }
+        }
+    </style>
+</head>
+<body class="qrcode-page">
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">正在生成二维码...</div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="header-section">
+            <h1 class="header-title">
+                <i class="fas fa-qrcode"></i> 二维码登录配置
+            </h1>
+            <p class="header-subtitle">
+                扫描下方二维码即可快速配置您的代理客户端，支持多种主流平台和客户端软件
+            </p>
+        </div>
+
+        <!-- 用户信息显示 -->
+        <div class="user-info" id="userInfo" style="display: none;">
+            <h2 class="user-title">
+                <i class="fas fa-user-circle"></i>
+                账户信息
+            </h2>
+            <div class="user-details" id="userDetails"></div>
+        </div>
+
+        <!-- 二维码配置区域 -->
+        <div class="content-grid">
+            <!-- 安卓客户端 -->
+            <div class="qrcode-card">
+                <div class="platform-icon android">
+                    <i class="fab fa-android"></i>
+                </div>
+                <h3 class="platform-name">Android 客户端</h3>
+                <div class="qrcode-description">
+                    <strong>推荐应用：</strong>SagerNet<br>
+                    <strong>所需插件：</strong>naiveproxy<br>
+                    <strong>注意：</strong>需要在系统设置中为 naiveproxy 插件开启自启动权限
+                </div>
+                <div class="qrcode-container" id="qrcode-android"></div>
+                <div class="download-info">
+                    <i class="fas fa-download"></i>
+                    请从官方渠道或可信的应用商店下载 SagerNet
+                </div>
+            </div>
+
+            <!-- iOS 客户端 -->
+            <div class="qrcode-card">
+                <div class="platform-icon ios">
+                    <i class="fab fa-apple"></i>
+                </div>
+                <h3 class="platform-name">iOS 客户端</h3>
+                <div class="qrcode-description">
+                    <strong>推荐应用：</strong>Shadowrocket (小火箭)<br>
+                    <strong>下载方式：</strong>通过外区 App Store 下载<br>
+                    <strong>推荐区域：</strong>美国、香港等地区
+                </div>
+                <div class="qrcode-container" id="qrcode-ios"></div>
+                <div class="download-info">
+                    <i class="fas fa-globe"></i>
+                    需要非中国大陆地区的 Apple ID 才能下载
+                </div>
+            </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="instruction">
+            <strong>使用步骤：</strong><br>
+            1. 下载并安装对应平台的客户端应用<br>
+            2. 打开应用，扫描对应的二维码<br>
+            3. 系统会自动添加配置信息<br>
+            <br>
+            <strong>重要提醒：</strong><br>
+            请勿将您的账户信息分享给他人，这可能导致账户被滥用而无法正常使用！<br>
+            建议定期修改密码以保证账户安全。
+        </div>
+    </div>
+
+    <script>
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        // 显示用户信息
+        function displayUserInfo(params) {
+            const userInfo = document.getElementById('userInfo');
+            const userDetails = document.getElementById('userDetails');
+
+            // 创建用户信息HTML
+            const userInfoHTML = `
+                <div class="user-detail-item">
+                    <div class="detail-label">用户名</div>
+                    <div class="detail-value">${params.get('username')}</div>
+                </div>
+                <div class="user-detail-item">
+                    <div class="detail-label">服务器地址</div>
+                    <div class="detail-value">${params.get('domain')}</div>
+                </div>
+                <div class="user-detail-item">
+                    <div class="detail-label">服务端口</div>
+                    <div class="detail-value">${params.get('port')}</div>
+                </div>
+                <div class="user-detail-item">
+                    <div class="detail-label">有效期</div>
+                    <div class="detail-value">${params.get('expiry')}</div>
+                </div>
+            `;
+
+            userDetails.innerHTML = userInfoHTML;
+            userInfo.style.display = 'block';
+        }
+
+        // 生成二维码
+        function generateQRCode() {
+            showLoading();
+
+            const params = new URLSearchParams(window.location.search);
+            const username = params.get('username');
+            const password = params.get('password');
+            const expiry = params.get('expiry');
+            const domain = params.get('domain');
+            const port = params.get('port');
+
+            // 验证必要参数
+            if (!username || !password || !domain || !port) {
+                hideLoading();
+                alert('缺少必要的连接参数，请检查链接是否完整');
+                return;
+            }
+
+            // 显示用户信息
+            displayUserInfo(params);
+
+            // 延迟一点生成二维码，让用户看到加载状态
+            setTimeout(() => {
+                try {
+                    // 生成安卓二维码
+                    const androidText = `naive+https://${username}:${password}@${domain}:${port}#期限:${expiry || '长期有效'}`;
+                    new QRCode(document.getElementById("qrcode-android"), {
+                        text: androidText,
+                        width: 200,
+                        height: 200,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+
+                    // 生成 iOS 二维码
+                    const base64Credentials = btoa(`${username}:${password}@${domain}:${port}`);
+                    const urlEncodedExpiry = encodeURIComponent(`期限:${expiry || '长期有效'}`);
+                    const iosText = `http2://${base64Credentials}#${urlEncodedExpiry}`;
+                    new QRCode(document.getElementById("qrcode-ios"), {
+                        text: iosText,
+                        width: 200,
+                        height: 200,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+
+                    hideLoading();
+                } catch (error) {
+                    console.error('二维码生成失败:', error);
+                    hideLoading();
+                    alert('二维码生成失败，请刷新页面重试');
+                }
+            }, 1000);
+        }
+
+        // 页面加载完成后生成二维码
+        document.addEventListener('DOMContentLoaded', function() {
+            generateQRCode();
+        });
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // 页面重新可见时，重新生成二维码（防止二维码过期）
+                setTimeout(generateQRCode, 500);
+            }
+        });
+
+        // 添加复制功能
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.qrcode-container')) {
+                const qrcodeContainer = e.target.closest('.qrcode-container');
+                const canvas = qrcodeContainer.querySelector('canvas');
+                if (canvas) {
+                    // 尝试将二维码转换为图片并复制
+                    canvas.toBlob(function(blob) {
+                        const item = new ClipboardItem({ "image/png": blob });
+                        navigator.clipboard.write([item]).then(function() {
+                            // 显示复制成功提示
+                            showCopySuccess(qrcodeContainer);
+                        }).catch(function() {
+                            console.log('复制失败');
+                        });
+                    });
+                }
+            }
+        });
+
+        // 显示复制成功提示
+        function showCopySuccess(container) {
+            const originalBorder = container.style.borderColor;
+            container.style.borderColor = '#10b981';
+            container.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.3)';
+
+            setTimeout(() => {
+                container.style.borderColor = originalBorder;
+                container.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.1)';
+            }, 2000);
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            // 按 R 键重新生成二维码
+            if (e.key === 'r' || e.key === 'R') {
+                if (confirm('确定要重新生成二维码吗？')) {
+                    generateQRCode();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

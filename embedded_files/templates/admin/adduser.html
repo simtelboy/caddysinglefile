@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增用户 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .adduser-page {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+        .adduser-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 25s linear infinite;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            padding: var(--space-xl) 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .form-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-xl);
+            width: 100%;
+            max-width: 600px;
+            margin: var(--space-xl);
+            overflow: hidden;
+        }
+        .form-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            padding: var(--space-2xl);
+            text-align: center;
+            color: white;
+        }
+        .form-title {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            margin: 0 0 var(--space-sm) 0;
+        }
+        .form-subtitle {
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+            margin: 0;
+        }
+        .form-body {
+            padding: var(--space-2xl);
+        }
+        .form-group {
+            margin-bottom: var(--space-xl);
+        }
+        .form-label {
+            display: block;
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-sm);
+        }
+        .form-input {
+            width: 100%;
+            padding: var(--space-md) var(--space-lg);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-base);
+            background: var(--bg-primary);
+            transition: all 0.3s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .form-input::placeholder {
+            color: var(--text-tertiary);
+        }
+        .date-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+        }
+        .date-btn {
+            padding: var(--space-sm) var(--space-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .date-btn:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: rgba(59, 130, 246, 0.05);
+            transform: translateY(-1px);
+        }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-lg);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-lg);
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary-color);
+        }
+        .checkbox-wrapper label {
+            margin: 0;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .traffic-limit-container {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            transition: all 0.3s ease;
+        }
+        .traffic-limit-container.disabled {
+            opacity: 0.6;
+        }
+        .form-actions {
+            display: flex;
+            gap: var(--space-md);
+            margin-top: var(--space-2xl);
+        }
+        .character-count {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            text-align: right;
+            margin-top: var(--space-xs);
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: var(--space-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            z-index: 1;
+        }
+        .input-with-icon {
+            padding-left: calc(var(--space-lg) + var(--space-md) + var(--space-xs));
+        }
+        .validation-hint {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            margin-top: var(--space-xs);
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            color: white;
+            text-decoration: none;
+            margin-bottom: var(--space-xl);
+            font-weight: 500;
+            transition: all 0.2s ease;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+        }
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-4px);
+        }
+        .alert {
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            margin-bottom: var(--space-lg);
+            border: 1px solid;
+            font-size: var(--font-size-sm);
+            display: none;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: var(--space-sm);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+            .form-container {
+                margin: var(--space-md);
+                border-radius: var(--radius-xl);
+            }
+            .form-header,
+            .form-body {
+                padding: var(--space-xl);
+            }
+            .date-options {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .form-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body class="adduser-page">
+    <div class="main-container">
+        <div style="width: 100%; max-width: 600px;">
+            <a href="/admin/userlist" class="back-link">
+                <span>←</span>
+                <span>返回用户列表</span>
+            </a>
+
+            <div class="form-container">
+                <div class="form-header">
+                    <h1 class="form-title">新增用户</h1>
+                    <p class="form-subtitle">填写以下信息创建新的代理用户账户</p>
+                </div>
+
+                <div class="form-body">
+                    <div id="alert" class="alert alert-error"></div>
+
+                    <form id="addUserForm">
+                        <div class="form-group">
+                            <label for="username" class="form-label">
+                                用户名
+                                <span style="color: var(--error-color);">*</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">👤</span>
+                                <input
+                                    type="text"
+                                    id="username"
+                                    name="username"
+                                    class="form-input input-with-icon"
+                                    placeholder="请输入用户名（不含空格和中文）"
+                                    required
+                                >
+                            </div>
+                            <div class="character-count">
+                                <span id="username-count">0</span>/32 字符
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password" class="form-label">
+                                密码
+                                <span style="color: var(--error-color);">*</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">🔒</span>
+                                <input
+                                    type="text"
+                                    id="password"
+                                    name="password"
+                                    class="form-input input-with-icon"
+                                    placeholder="请输入密码（不含空格和中文）"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email" class="form-label">
+                                邮箱地址
+                                <span style="color: var(--error-color);">*</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">✉️</span>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    class="form-input input-with-icon"
+                                    placeholder="user@example.com"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tags" class="form-label">
+                                标签备注
+                            </label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">🏷️</span>
+                                <input
+                                    type="text"
+                                    id="tags"
+                                    name="tags"
+                                    class="form-input input-with-icon"
+                                    placeholder="自定义标签（可选）"
+                                >
+                            </div>
+                            <div class="validation-hint">用于用户分类和备注，如：VIP、测试、企业等</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="expiry_date" class="form-label">
+                                有效期至
+                                <span style="color: var(--error-color);">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                id="expiry_date"
+                                name="expiry_date"
+                                class="form-input"
+                                required
+                            >
+                            <div class="date-options">
+                                <button type="button" class="date-btn" onclick="setExpiryDate(7)">7天</button>
+                                <button type="button" class="date-btn" onclick="setExpiryDate(14)">半个月</button>
+                                <button type="button" class="date-btn" onclick="setExpiryDate(30)">1个月</button>
+                                <button type="button" class="date-btn" onclick="setExpiryDate(90)">3个月</button>
+                                <button type="button" class="date-btn" onclick="setExpiryDate(180)">半年</button>
+                                <button type="button" class="date-btn" onclick="setExpiryDate(365)">1年</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="max_ips" class="form-label">
+                                最大客户端数
+                                <span style="color: var(--error-color);">*</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">📱</span>
+                                <input
+                                    type="number"
+                                    id="max_ips"
+                                    name="max_ips"
+                                    class="form-input input-with-icon"
+                                    value="3"
+                                    min="1"
+                                    max="50"
+                                    required
+                                >
+                            </div>
+                            <div class="validation-hint">限制用户可同时使用的设备数量</div>
+                        </div>
+
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="traffic_limit" name="traffic_limit" checked>
+                            <label for="traffic_limit">
+                                <strong>开启流量限制</strong>
+                                <div style="font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: var(--space-xs);">
+                                    启用后将限制用户每月流量使用量
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="monthly_limit_container" class="traffic-limit-container">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="monthly_limit" class="form-label">
+                                    每月流量限制
+                                    <span style="color: var(--error-color);">*</span>
+                                </label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">📊</span>
+                                    <input
+                                        type="number"
+                                        id="monthly_limit"
+                                        name="monthly_limit"
+                                        class="form-input input-with-icon"
+                                        value="30"
+                                        min="1"
+                                        step="0.1"
+                                        required
+                                    >
+                                </div>
+                                <div class="validation-hint">单位：GB（吉字节），建议设置30GB以上</div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" onclick="window.location.href='/admin/userlist'" class="btn btn-outline btn-block">
+                                <span>取消</span>
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                                <span>创建用户</span>
+                                <span class="loading-spinner"></span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 设置有效期快捷按钮
+        function setExpiryDate(days) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            document.getElementById('expiry_date').value = `${year}-${month}-${day}`;
+
+            // 添加视觉反馈
+            const buttons = document.querySelectorAll('.date-btn');
+            buttons.forEach(btn => {
+                btn.style.borderColor = 'var(--border-color)';
+                btn.style.color = 'var(--text-secondary)';
+            });
+            event.target.style.borderColor = 'var(--primary-color)';
+            event.target.style.color = 'var(--primary-color)';
+        }
+
+        // 用户名字符计数
+        const usernameInput = document.getElementById('username');
+        const usernameCount = document.getElementById('username-count');
+
+        usernameInput.addEventListener('input', function() {
+            this.value = this.value.replace(/[\u4E00-\u9FFF]/g, ''); // 移除中文字符
+            this.value = this.value.replace(/\s+/g, ''); // 移除空格
+            usernameCount.textContent = this.value.length;
+
+            // 字符数提示
+            if (this.value.length > 32) {
+                usernameCount.style.color = 'var(--error-color)';
+            } else if (this.value.length > 25) {
+                usernameCount.style.color = 'var(--warning-color)';
+            } else {
+                usernameCount.style.color = 'var(--text-tertiary)';
+            }
+        });
+
+        // 流量限制开关
+        document.getElementById('traffic_limit').addEventListener('change', function() {
+            const container = document.getElementById('monthly_limit_container');
+            const monthlyLimit = document.getElementById('monthly_limit');
+
+            if (this.checked) {
+                container.classList.remove('disabled');
+                monthlyLimit.disabled = false;
+                monthlyLimit.required = true;
+            } else {
+                container.classList.add('disabled');
+                monthlyLimit.disabled = true;
+                monthlyLimit.required = false;
+            }
+        });
+
+        // 只允许数字输入
+        document.getElementById('monthly_limit').addEventListener('input', function() {
+            this.value = this.value.replace(/[^\d.]/g, '');
+            // 限制小数点后一位
+            if (this.value.includes('.')) {
+                const parts = this.value.split('.');
+                if (parts[1] && parts[1].length > 1) {
+                    this.value = parseFloat(this.value).toFixed(1);
+                }
+            }
+        });
+
+        // 显示提示信息
+        function showAlert(message, type = 'error') {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <div style="display: flex; align-items: center; gap: var(--space-sm);">
+                    <span>${type === 'error' ? '❌' : '✅'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            alert.style.display = 'block';
+
+            // 滚动到提示信息
+            alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 5秒后自动隐藏
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                    alert.style.opacity = '1';
+                }, 300);
+            }, 5000);
+        }
+
+        // 表单验证
+        function validateForm(user) {
+            // 用户名验证
+            if (!user.username || user.username.length < 3) {
+                showAlert('用户名至少需要3个字符', 'error');
+                document.getElementById('username').focus();
+                return false;
+            }
+            if (user.username.length > 32) {
+                showAlert('用户名最多32个字符', 'error');
+                document.getElementById('username').focus();
+                return false;
+            }
+
+            // 密码验证
+            if (!user.password || user.password.length < 6) {
+                showAlert('密码至少需要6个字符', 'error');
+                document.getElementById('password').focus();
+                return false;
+            }
+
+            // 邮箱验证
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!user.email || !emailRegex.test(user.email)) {
+                showAlert('请输入有效的邮箱地址', 'error');
+                document.getElementById('email').focus();
+                return false;
+            }
+
+            // 最大IP数验证
+            if (isNaN(user.max_ips) || user.max_ips <= 0) {
+                showAlert('最大客户端数必须是正整数', 'error');
+                document.getElementById('max_ips').focus();
+                return false;
+            }
+
+            // 流量限制验证
+            if (user.traffic_limit === 'on') {
+                if (!user.monthly_limit || parseFloat(user.monthly_limit) <= 0) {
+                    showAlert('流量限制必须大于0', 'error');
+                    document.getElementById('monthly_limit').focus();
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // 表单提交
+        document.getElementById('addUserForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const spinner = submitBtn.querySelector('.loading-spinner');
+            const formData = new FormData(this);
+            const user = {};
+
+            formData.forEach((value, key) => {
+                user[key] = value;
+            });
+
+            // 数据转换
+            const date = new Date(user.expiry_date);
+            user.expiry_date = date.toISOString();
+            user.max_ips = parseInt(user.max_ips, 10);
+            user.traffic_limit = (user.traffic_limit === 'on');
+
+            if (user.traffic_limit) {
+                user.monthly_limit = parseFloat(user.monthly_limit) * (1024 * 1024 * 1024); // 转换为字节
+            }
+
+            // 表单验证
+            if (!validateForm(user)) {
+                return;
+            }
+
+            // 显示加载状态
+            submitBtn.disabled = true;
+            spinner.style.display = 'inline-block';
+
+            try {
+                const response = await fetch('/admin/add_user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(user)
+                });
+
+                let data;
+                const responseText = await response.text();
+
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(responseText || '服务器响应错误');
+                }
+
+                if (data.success) {
+                    showAlert('用户创建成功！正在跳转...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/admin/userlist';
+                    }, 2000);
+                } else {
+                    showAlert(data.message || '用户创建失败', 'error');
+                }
+            } catch (error) {
+                console.error('创建用户错误:', error);
+                showAlert(error.message || '网络错误，请稍后重试', 'error');
+            } finally {
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        });
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认有效期为7天
+            setExpiryDate(7);
+
+            // 聚焦到用户名输入框
+            document.getElementById('username').focus();
+
+            // 初始化流量限制状态
+            const trafficLimit = document.getElementById('traffic_limit');
+            trafficLimit.dispatchEvent(new Event('change'));
+        });
+
+        // 回车键提交
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && event.ctrlKey) {
+                document.getElementById('addUserForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

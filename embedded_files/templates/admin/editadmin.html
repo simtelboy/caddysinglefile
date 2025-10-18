@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修改管理员密码 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .password-page {
+            background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+            min-height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .password-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 30s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .password-container {
+            position: relative;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 480px;
+            padding: 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .password-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .password-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, #f97316, #dc2626);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .password-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        .password-subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .input-group {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            z-index: 1;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 3rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background-color: #ffffff;
+            color: #1e293b;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #f97316;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+        }
+        .form-input:disabled {
+            background-color: #f1f5f9;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        .password-toggle:hover {
+            color: #f97316;
+            background-color: #f1f5f9;
+        }
+        .btn-primary {
+            background-color: #f97316;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            width: 100%;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            background-color: #ea580c;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: #f97316;
+            border: 1px solid #f97316;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            width: 100%;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #f97316;
+            color: white;
+            transform: translateY(-1px);
+        }
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+            border: 1px solid;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .password-strength {
+            margin-top: 0.5rem;
+            height: 4px;
+            background-color: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+        .password-strength-bar.weak {
+            background-color: #ef4444;
+            width: 25%;
+        }
+        .password-strength-bar.medium {
+            background-color: #f59e0b;
+            width: 50%;
+        }
+        .password-strength-bar.strong {
+            background-color: #10b981;
+            width: 75%;
+        }
+        .password-strength-bar.very-strong {
+            background-color: #059669;
+            width: 100%;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 640px) {
+            .password-container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+            .password-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="password-page">
+    <div class="password-container">
+        <div class="password-header">
+            <div class="password-icon">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <h1 class="password-title">修改管理员密码</h1>
+            <p class="password-subtitle">为了安全起见，请定期更新您的密码</p>
+        </div>
+
+        <form id="editAdminForm">
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user"></i> 用户名
+                </label>
+                <div class="input-group">
+                    <input type="text" id="username" class="form-input" value="{{ .Username }}" readonly>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-lock"></i> 当前密码
+                </label>
+                <div class="input-group">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input type="password" id="current-password" class="form-input" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('current-password')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-key"></i> 新密码
+                </label>
+                <div class="input-group">
+                    <i class="fas fa-key input-icon"></i>
+                    <input type="password" id="new-password" class="form-input" required onkeyup="checkPasswordStrength()">
+                    <button type="button" class="password-toggle" onclick="togglePassword('new-password')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="strengthBar"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-check-circle"></i> 确认新密码
+                </label>
+                <div class="input-group">
+                    <i class="fas fa-check-circle input-icon"></i>
+                    <input type="password" id="confirm-password" class="form-input" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirm-password')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="alert alert-success" id="alert-success">
+                <i class="fas fa-check-circle"></i> 密码修改成功！页面即将跳转...
+            </div>
+            <div class="alert alert-error" id="alert-error">
+                <i class="fas fa-exclamation-triangle"></i> <span id="errorMessage"></span>
+            </div>
+
+            <button type="button" class="btn-primary" onclick="updateAdminPassword()">
+                <i class="fas fa-save"></i> 保存新密码
+            </button>
+            <a href="/admin/userlist" class="btn-secondary">
+                <i class="fas fa-arrow-left"></i> 返回用户列表
+            </a>
+        </form>
+    </div>
+
+    <script>
+        // 密码可见性切换
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const button = input.nextElementSibling;
+            const icon = button.querySelector('i');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // 检查密码强度
+        function checkPasswordStrength() {
+            const password = document.getElementById('new-password').value;
+            const strengthBar = document.getElementById('strengthBar');
+
+            let strength = 0;
+            if (password.length >= 8) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+
+            strengthBar.className = 'password-strength-bar';
+            if (password.length === 0) {
+                strengthBar.style.width = '0%';
+            } else if (strength <= 2) {
+                strengthBar.classList.add('weak');
+            } else if (strength === 3) {
+                strengthBar.classList.add('medium');
+            } else if (strength === 4) {
+                strengthBar.classList.add('strong');
+            } else {
+                strengthBar.classList.add('very-strong');
+            }
+        }
+
+        // 显示提示消息
+        function showAlert(message, type) {
+            const alertSuccess = document.getElementById('alert-success');
+            const alertError = document.getElementById('alert-error');
+
+            if (type === 'success') {
+                alertSuccess.style.display = 'block';
+                alertError.style.display = 'none';
+            } else {
+                alertError.style.display = 'block';
+                alertSuccess.style.display = 'none';
+                document.getElementById('errorMessage').textContent = message;
+            }
+        }
+
+        // 更新管理员密码
+        async function updateAdminPassword() {
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // 验证输入
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showAlert('请填写所有密码字段', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showAlert('新密码和确认密码不匹配', 'error');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showAlert('新密码长度至少为6个字符', 'error');
+                return;
+            }
+
+            // 检查密码强度
+            const strengthBar = document.getElementById('strengthBar');
+            if (strengthBar.classList.contains('weak')) {
+                if (!confirm('密码强度较弱，确定要继续吗？')) {
+                    return;
+                }
+            }
+
+            try {
+                const response = await fetch('/admin/update_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert('密码修改成功！页面即将跳转...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/admin/userlist';
+                    }, 2000);
+                } else {
+                    const errorData = await response.json();
+                    showAlert(errorData.message || '密码修改失败，请检查当前密码是否正确', 'error');
+                }
+            } catch (error) {
+                console.error('密码修改请求失败:', error);
+                showAlert('网络请求失败，请稍后重试', 'error');
+            }
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                updateAdminPassword();
+            }
+        });
+
+        // 页面加载完成后聚焦当前密码输入框
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('current-password').focus();
+        });
+    </script>
+</body>
+</html>
+<script>
+  async function updateAdminPassword() {
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const alertSuccess = document.getElementById('alert-success');
+    const alertError = document.getElementById('alert-error');
+
+    if (newPassword !== confirmPassword) {
+      alertError.innerHTML = '新密码和确认新密码不匹配。';
+      alertError.style.display = 'block';
+      alertSuccess.style.display = 'none';
+      return;
+    }
+
+    const response = await fetch('/admin/update_password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        currentPassword,
+        newPassword
+      })
+    });
+
+    if (response.ok) {
+      alertSuccess.style.display = 'block';
+      alertError.style.display = 'none';
+      setTimeout(() => {
+        window.location.href = '/admin/userlist';
+      }, 2000); // 延迟 2 秒后跳转
+    } else {
+      alertError.innerHTML = '密码修改失败，请重试。';
+      alertError.style.display = 'block';
+      alertSuccess.style.display = 'none';
+    }
+  }
+
+ /* document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('username');
+    document.getElementById('username').value = username;
+  });*/
+</script>
+</body>
+</html>

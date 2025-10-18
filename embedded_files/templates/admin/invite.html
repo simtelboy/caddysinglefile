@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邀请码管理 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.9.8/dist/ffmpeg.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .invite-page {
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .invite-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 40s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: white;
+        }
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .page-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(8, 145, 178, 0.4);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .table-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .table th {
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #1e293b;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        .table tr:hover {
+            background-color: rgba(8, 145, 178, 0.05);
+        }
+        .url-card {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .url-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border-color: #0891b2;
+        }
+        .url-card.move-down {
+            transform: translateY(60px);
+            transition: transform 0.5s ease-in-out;
+        }
+        .url-card.new-item {
+            border: 2px solid #10b981;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+            animation: newSlideIn 0.5s ease;
+        }
+        @keyframes newSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .url-card.new-item.hide {
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.5s ease;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #0891b2;
+            box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .btn-save {
+            background-color: #10b981;
+            color: white;
+        }
+        .btn-save:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+        .btn-delete {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-delete:hover {
+            background-color: #dc2626;
+            transform: translateY(-1px);
+        }
+        .btn-copy {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .btn-copy:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+        .btn-cancel {
+            background-color: #6b7280;
+            color: white;
+        }
+        .btn-cancel:hover {
+            background-color: #4b5563;
+            transform: translateY(-1px);
+        }
+        .progress-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .progress-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .progress-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        .progress-subtitle {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 9999px;
+        }
+        .progress-text {
+            text-align: center;
+            font-weight: 600;
+            color: #0891b2;
+        }
+        #qr-canvas {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+            .page-title {
+                font-size: 2rem;
+            }
+            .actions-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .table-container {
+                overflow-x: auto;
+            }
+            .action-buttons {
+                justify-content: center;
+            }
+            .url-card {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .table,
+            .table thead,
+            .table tbody,
+            .table th,
+            .table td,
+            .table tr {
+                display: block;
+            }
+            .table thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+            .table tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e2e8f0;
+                border-radius: 0.5rem;
+            }
+            .table td {
+                border: none;
+                position: relative;
+                padding-left: 50%;
+                text-align: left;
+            }
+            .table td:before {
+                position: absolute;
+                top: 1rem;
+                left: 1rem;
+                width: 45%;
+                padding-right: 1rem;
+                white-space: nowrap;
+                font-weight: 600;
+                color: #64748b;
+            }
+            .table td:nth-of-type(1):before { content: "网址对象"; }
+            .table td:nth-of-type(2):before { content: "可注册数"; }
+            .table td:nth-of-type(3):before { content: "有效天数"; }
+            .table td:nth-of-type(4):before { content: "客户端数"; }
+            .table td:nth-of-type(5):before { content: "备注"; }
+            .table td:nth-of-type(6):before { content: "操作"; }
+            .action-buttons {
+                justify-content: flex-start;
+                margin-top: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="invite-page">
+    <div class="main-container">
+        <div class="page-header">
+            <h1 class="page-title">
+                <i class="fas fa-link"></i> 邀请码管理
+            </h1>
+            <p class="page-subtitle">
+                创建和管理用户注册邀请链接，支持批量生成和多种分享方式
+            </p>
+        </div>
+
+        <div class="actions-bar">
+            <button id="add-new" class="btn-primary">
+                <i class="fas fa-plus-circle"></i>
+                新建邀请码
+            </button>
+            <a href="/admin/userlist" class="btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                返回用户列表
+            </a>
+        </div>
+
+        <div class="table-container">
+            <table id="url-table" class="table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-tag"></i> 网址对象</th>
+                        <th><i class="fas fa-users"></i> 可注册数</th>
+                        <th><i class="fas fa-calendar-alt"></i> 有效天数</th>
+                        <th><i class="fas fa-mobile-alt"></i> 客户端数</th>
+                        <th><i class="fas fa-sticky-note"></i> 备注</th>
+                        <th><i class="fas fa-cogs"></i> 操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 动态生成行 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <canvas id="qr-canvas"></canvas>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/admin/get_registration_urls')
+                    .then(response => response.json())
+                    .then(data => {
+                        const tableBody = document.querySelector('#url-table tbody');
+                        data.forEach(row => {
+                            const tr = document.createElement('tr');
+                            tr.classList.add('url-card');
+                            tr.innerHTML = `
+                                <td><input type="text" class="form-input" value="${row.url_title}" data-id="${row.id}" data-field="url_title" onclick="this.select()"></td>
+                                <td><input type="number" class="form-input" value="${row.quantity}" data-id="${row.id}" data-field="quantity" onclick="this.select()" oninput="validateNumber(this)"></td>
+                                <td><input type="number" class="form-input" value="${row.expiry_days}" data-id="${row.id}" data-field="expiry_days" onclick="this.select()" oninput="validateNumber(this)"></td>
+                                <td><input type="number" class="form-input" value="${row.max_ips}" data-id="${row.id}" data-field="max_ips" onclick="this.select()" oninput="validateNumber(this)"></td>
+                                <td><input type="text" class="form-input" value="${row.tags}" data-id="${row.id}" data-field="tags" onclick="this.select()"></td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button onclick="saveRow(${row.id})" class="btn-sm btn-save"><i class="fas fa-save"></i> 保存</button>
+                                        <button onclick="deleteRow(${row.id})" class="btn-sm btn-delete"><i class="fas fa-trash"></i> 删除</button>
+                                        <button onclick="copyURL('${row.hmac_code.replace(/'/g, "\\'")}', '${row.tags.replace(/'/g, "\\'")}', ${row.quantity}, ${row.expiry_days}, ${row.max_ips})" class="btn-sm btn-copy"><i class="fas fa-link"></i> 拷贝网址</button>
+                                        <button onclick="copyImage('${row.hmac_code.replace(/'/g, "\\'")}', '${row.tags.replace(/'/g, "\\'")}', ${row.quantity}, ${row.expiry_days}, ${row.max_ips})" class="btn-sm btn-copy"><i class="fas fa-image"></i> 拷贝图片</button>
+                                        <button onclick="copyVideo('${row.hmac_code.replace(/'/g, "\\'")}', '${row.tags.replace(/'/g, "\\'")}', ${row.quantity}, ${row.expiry_days}, ${row.max_ips})" class="btn-sm btn-copy"><i class="fas fa-video"></i> 拷贝视频</button>
+                                    </div>
+                                </td>
+                            `;
+                            tableBody.appendChild(tr);
+                        });
+                    });
+
+            document.getElementById('add-new').addEventListener('click', function() {
+                const tableBody = document.querySelector('#url-table tbody');
+                const rows = tableBody.querySelectorAll('.url-card');
+                rows.forEach(row => row.classList.add('move-down'));
+
+                const tr = document.createElement('tr');
+                tr.classList.add('url-card', 'new-item');
+                tr.innerHTML = `
+                    <td><input type="text" class="form-input" value="" data-field="url_title" onclick="this.select()"></td>
+                    <td><input type="number" class="form-input" value="1" data-field="quantity" onclick="this.select()" oninput="validateNumber(this)"></td>
+                    <td><input type="number" class="form-input" value="7" data-field="expiry_days" onclick="this.select()" oninput="validateNumber(this)"></td>
+                    <td><input type="number" class="form-input" value="3" data-field="max_ips" onclick="this.select()" oninput="validateNumber(this)"></td>
+                    <td><input type="text" class="form-input" value="" data-field="tags" onclick="this.select()"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button onclick="saveNewRow(this)" class="btn-sm btn-save"><i class="fas fa-save"></i> 保存</button>
+                            <button onclick="removeRow(this)" class="btn-sm btn-cancel"><i class="fas fa-times"></i> 取消</button>
+                        </div>
+                    </td>
+                `;
+                tableBody.insertBefore(tr, tableBody.firstChild);
+                setTimeout(() => tr.classList.add('show'), 10);
+            });
+        });
+
+        function validateNumber(input) {
+            if (isNaN(input.value) || input.value < 0) {
+                input.value = '';
+                showNotification('请输入有效的正数', 'error');
+            }
+        }
+
+        function showNotification(message, type) {
+            // 创建通知元素
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'error' : 'success'}`;
+            notification.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.minWidth = '300px';
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function saveRow(id) {
+            const inputs = document.querySelectorAll(`#url-table tbody input[data-id="${id}"]`);
+            const update = {};
+            inputs.forEach(input => {
+                const value = input.value;
+                if (input.dataset.field === "quantity" || input.dataset.field === "expiry_days" || input.dataset.field === "max_ips") {
+                    update[input.dataset.field] = parseInt(value, 10);
+                } else {
+                    update[input.dataset.field] = value;
+                }
+            });
+            update.id = id;
+
+            fetch('/admin/update_registration_url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(update)
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('保存成功!', 'success');
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            showNotification('保存失败: ' + data.message, 'error');
+                        }
+                    });
+        }
+
+        function saveNewRow(button) {
+            const tr = button.closest('tr');
+            const inputs = tr.querySelectorAll('input');
+            const newRow = {};
+            inputs.forEach(input => {
+                const value = input.value;
+                if (input.dataset.field === "quantity" || input.dataset.field === "expiry_days" || input.dataset.field === "max_ips") {
+                    newRow[input.dataset.field] = parseInt(value, 10);
+                } else {
+                    newRow[input.dataset.field] = value;
+                }
+            });
+            fetch('/admin/create_registration_url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newRow)
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('创建成功!', 'success');
+                            tr.classList.add('hide');
+                            setTimeout(() => location.reload(), 500);
+                        } else {
+                            showNotification('创建失败: ' + data.message, 'error');
+                        }
+                    });
+        }
+
+        function removeRow(button) {
+            const tr = button.closest('tr');
+            tr.classList.add('hide');
+            setTimeout(() => {
+                tr.remove();
+                const tableBody = document.querySelector('#url-table tbody');
+                const rows = tableBody.querySelectorAll('.url-card');
+                rows.forEach(row => row.classList.remove('move-down'));
+            }, 500);
+        }
+
+        function deleteRow(id) {
+            if (confirm('确定要删除此邀请码吗?')) {
+                fetch(`/admin/delete_registration_url?id=${id}`, {
+                    method: 'DELETE'
+                })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                showNotification('删除成功!', 'success');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                showNotification('删除失败: ' + data.message, 'error');
+                            }
+                        });
+            }
+        }
+
+        function copyURL(hmac_code, tags, quantity, expiry_days, max_ips) {
+            fetch(`/admin/get_sysinfo`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const domain = data.domain;
+                        const port = data.port;
+                        let ips = max_ips < 1 ? 1 : Math.max(1, Math.floor(max_ips / 3));
+                        const url = `https://${domain}/register?act=${hmac_code}`;
+                        const textToShare = `${url}\n\n\t本网址:限制注册${quantity}个用户，\n\t注册后帐户期限为${expiry_days}天，\n\t限制登陆客户端${ips}个，\n\n\t注册成功后，有展示二维码，请截图保存好！\n\n\t请勿把帐号分享给他人--导致帐号失效！`;
+
+                        if (navigator.share && /iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                            navigator.share({
+                                title: '分享网址',
+                                text: textToShare,
+                                url: url
+                            }).then(() => {
+                                showNotification('分享成功', 'success');
+                            }).catch(err => {
+                                console.error('分享失败: ', err);
+                            });
+                        } else {
+                            navigator.clipboard.writeText(textToShare)
+                                    .then(() => showNotification('网址已拷贝到剪贴板!', 'success'))
+                                    .catch(err => console.error('Failed to copy URL: ', err));
+                        }
+                    })
+                    .catch(err => console.error('获取系统信息失败: ', err));
+        }
+
+        function copyImage(hmac_code, tags, quantity, expiry_days, max_ips) {
+            fetch(`/admin/get_sysinfo`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const domain = data.domain;
+                        const port = data.port;
+                        let ips = max_ips < 1 ? 1 : Math.max(1, Math.floor(max_ips / 3));
+                        const url = `https://${domain}/register?act=${hmac_code}`;
+                        const textToShare = `本网址:限制注册${quantity}个用户，\n注册后帐户期限为${expiry_days}天，\n限制登陆客户端${ips}个，\n注册成功后，有展示二维码，请截图保存好！\n请勿把帐号分享给他人--导致帐号失效！`;
+
+                        const canvas = document.getElementById("qr-canvas");
+                        const ctx = canvas.getContext("2d");
+                        canvas.width = 400;
+                        canvas.height = 550;
+
+                        const qr = new QRCode(document.createElement('div'), {
+                            text: url,
+                            width: 256,
+                            height: 256,
+                            colorDark: "#000000",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+
+                        setTimeout(() => {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            const qrImg = qr._oDrawing._elImage;
+                            ctx.drawImage(qrImg, (canvas.width - 256) / 2, 20);
+
+                            let y = 316;
+                            ctx.font = "16px Arial";
+                            ctx.fillStyle = "#000";
+                            const lines = textToShare.split('\n');
+                            for (let line of lines) {
+                                ctx.fillText(line, 20, y);
+                                y += 24;
+                            }
+
+                            if (navigator.share && /iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                                canvas.toBlob(blob => {
+                                    const file = new File([blob], 'qrcode.png', { type: 'image/png' });
+                                    const filesArray = [file];
+                                    navigator.share({
+                                        files: filesArray,
+                                        title: '分享二维码图片',
+                                        text: textToShare
+                                    }).then(() => {
+                                        showNotification('分享成功', 'success');
+                                    }).catch(err => {
+                                        console.error('分享失败: ', err);
+                                    });
+                                });
+                            } else {
+                                canvas.toBlob(blob => {
+                                    const item = new ClipboardItem({ "image/png": blob });
+                                    navigator.clipboard.write([item])
+                                            .then(() => showNotification('图片已拷贝到剪贴板!', 'success'))
+                                            .catch(err => console.error('Failed to copy image: ', err));
+                                });
+                            }
+                        }, 500);
+                    })
+                    .catch(err => console.error('获取系统信息失败: ', err));
+        }
+
+        async function copyVideo(hmac_code, tags, quantity, expiry_days, max_ips) {
+            const { createFFmpeg, fetchFile } = FFmpeg;
+            const ffmpeg = createFFmpeg({ log: true });
+
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'progress-container';
+            progressContainer.innerHTML = `
+                <div class="progress-header">
+                    <h3 class="progress-title"><i class="fas fa-video"></i> 正在生成视频</h3>
+                    <p class="progress-subtitle">请稍候，这需要一些时间...</p>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            `;
+            document.body.appendChild(progressContainer);
+
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+
+            let startTime = Date.now();
+            const updateProgressBar = setInterval(() => {
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                const percentage = Math.min((elapsedTime / 60) * 100, 100);
+                progressFill.style.width = `${percentage}%`;
+                progressText.textContent = `${Math.round(percentage)}%`;
+
+                if (percentage >= 100) {
+                    clearInterval(updateProgressBar);
+                }
+            }, 100);
+
+            if (!ffmpeg.isLoaded()) {
+                await ffmpeg.load();
+            }
+
+            fetch(`/admin/get_sysinfo`)
+                    .then(response => response.json())
+                    .then(async data => {
+                        const domain = data.domain;
+                        let ips = max_ips < 1 ? 1 : Math.max(1, Math.floor(max_ips / 3));
+                        const url = `https://${domain}/register?act=${hmac_code}`;
+                        const textToShare = `本网址:限制注册${quantity}个用户，\n注册后帐户期限为${expiry_days}天，\n限制登陆客户端${ips}个，\n注册成功后，有展示二维码，请截图保存好！\n请勿把帐号分享给他人--导致帐号失效！`;
+
+                        const canvas = document.getElementById("qr-canvas");
+                        const ctx = canvas.getContext("2d");
+                        canvas.width = 400;
+                        canvas.height = 550;
+
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        const qr = new QRCode(document.createElement('div'), {
+                            text: url,
+                            width: 256,
+                            height: 256,
+                            colorDark: "#000000",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+
+                        setTimeout(async () => {
+                            const qrImg = qr._oDrawing._elImage;
+                            ctx.drawImage(qrImg, (canvas.width - 256) / 2, 20);
+
+                            let y = 316;
+                            ctx.font = "16px Arial";
+                            ctx.fillStyle = "#000";
+                            const lines = textToShare.split('\n');
+                            for (let line of lines) {
+                                ctx.fillText(line, 20, y);
+                                y += 24;
+                            }
+
+                            const stream = canvas.captureStream(30);
+                            const recorder = new MediaRecorder(stream, {
+                                mimeType: 'video/webm; codecs=vp8'
+                            });
+                            const chunks = [];
+
+                            recorder.ondataavailable = e => {
+                                if (e.data.size > 0) {
+                                    chunks.push(e.data);
+                                }
+                            };
+
+                            recorder.onstop = async () => {
+                                if (chunks.length === 0) {
+                                    showNotification('录制的视频长度为0，请重试', 'error');
+                                    clearInterval(updateProgressBar);
+                                    progressContainer.remove();
+                                    return;
+                                }
+
+                                const blob = new Blob(chunks, { type: 'video/webm' });
+                                const webmData = await fetchFile(blob);
+
+                                const videoUrls = [
+                                    '/static/video/fdd4.mp4',
+                                ];
+
+                                const randomIndex = Math.floor(Math.random() * videoUrls.length);
+                                const randomVideoUrl = videoUrls[randomIndex];
+
+                                const mp4Response = await fetch(randomVideoUrl, { mode: 'no-cors' });
+                                const mp4Blob = await mp4Response.blob();
+                                const mp4Data = await fetchFile(mp4Blob);
+
+                                ffmpeg.FS('writeFile', 'input.webm', webmData);
+                                ffmpeg.FS('writeFile', 'existing.mp4', mp4Data);
+
+                                await ffmpeg.run('-i', 'input.webm', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '30', 'qr.mp4');
+                                const qrMp4Data = ffmpeg.FS('readFile', 'qr.mp4');
+                                ffmpeg.FS('writeFile', 'qr.mp4', qrMp4Data);
+
+                                const ffmpegCommand = [
+                                    '-i', 'existing.mp4',
+                                    '-i', 'qr.mp4',
+                                    '-filter_complex', '[0:v]scale=400:550,setsar=1[v0];[1:v]scale=400:550,setsar=1[v1];[v0][v1]concat=n=2:v=1:a=0[v]',
+                                    '-map', '[v]',
+                                    '-map', '0:a',
+                                    '-c:a', 'copy',
+                                    'output.mp4'
+                                ];
+
+                                await ffmpeg.run(...ffmpegCommand);
+                                const finalMp4Data = ffmpeg.FS('readFile', 'output.mp4');
+
+                                const finalMp4Blob = new Blob([finalMp4Data.buffer], { type: 'video/mp4' });
+                                const videoURL = URL.createObjectURL(finalMp4Blob);
+
+                                if (navigator.share && /iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                                    const file = new File([finalMp4Blob], 'qrcode_video.mp4', { type: 'video/mp4' });
+                                    const filesArray = [file];
+                                    navigator.share({
+                                        files: filesArray,
+                                        title: '分享二维码视频',
+                                        text: textToShare
+                                    }).then(() => {
+                                        showNotification('分享成功', 'success');
+                                    }).catch(err => {
+                                        showNotification('分享失败: ' + err.message, 'error');
+                                    });
+                                } else {
+                                    const downloadLink = document.createElement('a');
+                                    downloadLink.href = videoURL;
+                                    downloadLink.download = 'qrcode_video.mp4';
+                                    downloadLink.click();
+                                    showNotification('视频已生成并准备下载!', 'success');
+                                }
+
+                                clearInterval(updateProgressBar);
+                                progressFill.style.width = '100%';
+                                progressText.textContent = '100%';
+                                setTimeout(() => {
+                                    progressContainer.remove();
+                                }, 500);
+                            };
+
+                            console.log('开始录制');
+                            recorder.start();
+                            setTimeout(() => {
+                                console.log('停止录制');
+                                recorder.stop();
+                            }, 3000);
+                        }, 500);
+                    })
+                    .catch(err => {
+                        console.error('获取系统信息失败: ', err);
+                        clearInterval(updateProgressBar);
+                        progressContainer.remove();
+                    });
+        }
+    </script>
+</body>
+</html>

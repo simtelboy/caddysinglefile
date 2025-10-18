@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户中心 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <script src="/static/js/qrcode.min.js"></script>
+    <script src="/static/js/timeformat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .clientarea-page {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .clientarea-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 20s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            padding: var(--space-xl) 0;
+        }
+        .header-section {
+            text-align: center;
+            margin-bottom: var(--space-xl);
+            color: white;
+        }
+        .header-title {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-subtitle {
+            font-size: var(--font-size-lg);
+            opacity: 0.9;
+            font-weight: 400;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+        }
+        .stat-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-xl);
+        }
+        .stat-icon.blue { background: linear-gradient(135deg, #3b82f6, #1e40af); color: white; }
+        .stat-icon.green { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .stat-icon.orange { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .stat-icon.purple { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; }
+        .stat-title {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .stat-value {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--space-xs);
+        }
+        .stat-change {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            margin-top: var(--space-sm);
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+            border-radius: var(--radius-full);
+            transition: width 0.3s ease;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-xl);
+            margin-bottom: var(--space-xl);
+        }
+        .content-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-lg);
+            padding-bottom: var(--space-md);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .card-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        .qrcode-section {
+            text-align: center;
+        }
+        .qrcode-item {
+            margin: var(--space-lg) 0;
+            padding: var(--space-lg);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        .qrcode-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+        .qrcode-label {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+        }
+        .qrcode-description {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-lg);
+            line-height: 1.5;
+        }
+        #qrcode-android, #qrcode-ios {
+            display: inline-block;
+            padding: var(--space-md);
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .account-section {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+        .account-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-md);
+        }
+        .info-item {
+            padding: var(--space-md);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--primary-color);
+        }
+        .info-label {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-xs);
+            font-weight: 500;
+        }
+        .info-value {
+            font-size: var(--font-size-md);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .action-buttons {
+            display: flex;
+            gap: var(--space-md);
+            margin-top: var(--space-lg);
+        }
+        .reset-time-info {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            margin: var(--space-lg) 0;
+            font-size: var(--font-size-sm);
+            color: var(--error-color);
+            text-align: center;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .btn-loading .loading-spinner {
+            display: inline-block;
+        }
+        .btn-loading .btn-text {
+            display: none;
+        }
+        .alert {
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            margin-bottom: var(--space-lg);
+            border: 1px solid;
+            font-size: var(--font-size-sm);
+            display: none;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+        .instruction {
+            text-align: center;
+            margin-top: var(--space-xl);
+            padding: var(--space-lg);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            color: white;
+            font-size: var(--font-size-sm);
+            line-height: 1.6;
+        }
+        .instruction strong {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: var(--space-md);
+            }
+            .account-info {
+                grid-template-columns: 1fr;
+            }
+            .action-buttons {
+                flex-direction: column;
+            }
+            .main-container {
+                padding: var(--space-lg) var(--space-md);
+            }
+        }
+    </style>
+</head>
+<body class="clientarea-page">
+    <div class="main-container">
+        <div class="container">
+            <div class="header-section">
+                <h1 class="header-title">
+                    <i class="fas fa-tachometer-alt"></i> 用户中心
+                </h1>
+                <p class="header-subtitle">管理您的代理服务账户和连接配置</p>
+            </div>
+
+            <div id="alert" class="alert alert-error"></div>
+
+            <!-- 统计卡片 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="stat-title">用户信息</div>
+                    </div>
+                    <div class="stat-value" id="display-username">加载中...</div>
+                    <div class="stat-change">账户状态：正常</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="stat-title">有效期至</div>
+                    </div>
+                    <div class="stat-value" id="display-expiry">加载中...</div>
+                    <div class="stat-change">请在到期前续费</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon green">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-title">本月已用流量</div>
+                    </div>
+                    <div class="stat-value" id="display-monthly-traffic">加载中...</div>
+                    <div class="stat-change">总流量：<span id="display-total-traffic">加载中...</span></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="traffic-progress"></div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon purple">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="stat-title">剩余月流量</div>
+                    </div>
+                    <div class="stat-value" id="display-remaining-traffic">加载中...</div>
+                    <div class="stat-change">流量限额状态</div>
+                </div>
+            </div>
+
+            <!-- 主要内容区域 -->
+            <div class="content-grid">
+                <!-- 二维码配置 -->
+                <div class="content-card qrcode-section">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-qrcode"></i>
+                            客户端配置
+                        </h2>
+                    </div>
+
+                    <div class="qrcode-item">
+                        <div class="qrcode-label">
+                            <i class="fab fa-android"></i>
+                            安卓客户端
+                        </div>
+                        <div class="qrcode-description">
+                            使用 SagerNet 搭配 naiveproxy 插件<br>
+                            naiveproxy 插件需要在系统开启自启动权限
+                        </div>
+                        <div id="qrcode-android"></div>
+                    </div>
+
+                    <div class="qrcode-item">
+                        <div class="qrcode-label">
+                            <i class="fab fa-apple"></i>
+                            iOS 客户端
+                        </div>
+                        <div class="qrcode-description">
+                            使用 Shadowrocket<br>
+                            通过外网市场（或香港或美国）下载
+                        </div>
+                        <div id="qrcode-ios"></div>
+                    </div>
+                </div>
+
+                <!-- 账户管理 -->
+                <div class="content-card account-section">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-user-cog"></i>
+                            账户管理
+                        </h2>
+                    </div>
+
+                    <div class="account-info">
+                        <div class="info-item">
+                            <div class="info-label">用户名</div>
+                            <div class="info-value" id="info-username">加载中...</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">服务器地址</div>
+                            <div class="info-value" id="info-domain">加载中...</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">服务端口</div>
+                            <div class="info-value" id="info-port">加载中...</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">最大客户端数</div>
+                            <div class="info-value" id="info-max-ips">加载中...</div>
+                        </div>
+                    </div>
+
+                    <div class="reset-time-info">
+                        <i class="fas fa-clock"></i>
+                        下月流量重置时间：<span class="utc-plus-8">{{.NextResetTime}}</span>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="changePassword()" id="changePasswordBtn">
+                            <span class="loading-spinner"></span>
+                            <span class="btn-text">
+                                <i class="fas fa-key"></i> 修改密码
+                            </span>
+                        </button>
+                        <button class="btn btn-danger" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> 退出登录
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instruction">
+                <strong>使用说明：</strong><br>
+                下载好对应的客户端应用后，在应用内扫描相应的二维码即可添加配置。<br>
+                <strong>重要提醒：</strong>请勿将您的账户信息分享给他人，这可能导致账户被滥用而无法正常使用！
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示/隐藏提示信息
+        function showAlert(message, type = 'error') {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <div style="display: flex; align-items: center; gap: ${getComputedStyle(document.documentElement).getPropertyValue('--space-sm')};">
+                    <span>${type === 'error' ? '❌' : '✅'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            alert.style.display = 'block';
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                    alert.style.opacity = '1';
+                }, 300);
+            }, 3000);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/user/userdetails')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('获取用户信息失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 更新用户信息显示
+                    updateUserDisplay(data);
+
+                    // 生成二维码
+                    generateQRCodes(data);
+                })
+                .catch(error => {
+                    console.error('加载数据失败:', error);
+                    showAlert('加载用户信息失败，请刷新页面重试', 'error');
+                });
+
+            // 转换北京时间显示
+            document.querySelectorAll('.utc-plus-8').forEach(element => {
+                const originalTime = element.textContent;
+                element.textContent = convertToBeijingTime(originalTime);
+            });
+        });
+
+        // 更新用户信息显示
+        function updateUserDisplay(data) {
+            // 基本信息
+            document.getElementById('display-username').textContent = data.username;
+            document.getElementById('info-username').textContent = data.username;
+            document.getElementById('info-domain').textContent = data.domain;
+            document.getElementById('info-port').textContent = data.port;
+            document.getElementById('info-max-ips').textContent = data.max_ips;
+
+            // 时间信息
+            const expiryDate = new Date(data.expiry_date);
+            document.getElementById('display-expiry').textContent = expiryDate.toLocaleDateString('zh-CN');
+
+            // 流量信息
+            const totalTraffic = formatFileSize(data.totaltraffic);
+            const monthlyTraffic = formatFileSize(data.current_month_traffic);
+
+            document.getElementById('display-total-traffic').textContent = totalTraffic;
+            document.getElementById('display-monthly-traffic').textContent = monthlyTraffic;
+
+            // 处理剩余流量显示
+            const remainingTrafficElement = document.getElementById('display-remaining-traffic');
+            const progressBar = document.getElementById('traffic-progress');
+
+            if (data.traffic_limit) {
+                const remainingTraffic = data.monthly_limit - data.current_month_traffic;
+                const remainingTrafficFormatted = formatFileSize(remainingTraffic);
+                remainingTrafficElement.textContent = remainingTrafficFormatted;
+
+                // 计算流量使用百分比
+                const usagePercentage = Math.min((data.current_month_traffic / data.monthly_limit) * 100, 100);
+                progressBar.style.width = usagePercentage + '%';
+
+                // 根据使用量调整进度条颜色
+                if (usagePercentage >= 90) {
+                    progressBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+                } else if (usagePercentage >= 70) {
+                    progressBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+                } else {
+                    progressBar.style.background = 'linear-gradient(90deg, #10b981, #059669)';
+                }
+            } else {
+                remainingTrafficElement.textContent = '不限额';
+                progressBar.style.width = '0%';
+            }
+        }
+
+        // 生成二维码
+        function generateQRCodes(data) {
+            const base64Credentials = btoa(`${data.username}:${data.password}@${data.domain}:${data.port}`);
+            const urlEncodedExpiry = encodeURIComponent(`期限:${data.expiry_date.split('T')[0]},限:${Math.max(1, Math.floor(data.max_ips / 3))}个客户端`);
+
+            // Android QR Code
+            const androidText = `naive+https://${data.username}:${data.password}@${data.domain}:${data.port}#${urlEncodedExpiry}`;
+            new QRCode(document.getElementById("qrcode-android"), {
+                text: androidText,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // iOS QR Code
+            const iosText = `http2://${base64Credentials}#${urlEncodedExpiry}`;
+            new QRCode(document.getElementById("qrcode-ios"), {
+                text: iosText,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // 修改密码
+        function changePassword() {
+            const newPassword = prompt('请输入新密码（不含空格和中文）：');
+            if (newPassword) {
+                // 验证密码是否包含中文或空格
+                const containsChinese = /[\u4e00-\u9fa5]/.test(newPassword);
+                const containsSpace = /\s/.test(newPassword);
+
+                if (containsChinese) {
+                    showAlert('密码不能包含中文字符', 'error');
+                    return;
+                }
+
+                if (containsSpace) {
+                    showAlert('密码不能包含空格', 'error');
+                    return;
+                }
+
+                if (newPassword.length < 6) {
+                    showAlert('密码长度至少需要6个字符', 'error');
+                    return;
+                }
+
+                const changePasswordBtn = document.getElementById('changePasswordBtn');
+                changePasswordBtn.disabled = true;
+                changePasswordBtn.classList.add('btn-loading');
+
+                fetch('/user/changepassword', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ password: newPassword })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('密码修改成功！', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showAlert('密码修改失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('密码修改错误:', error);
+                    showAlert('网络错误，请稍后重试', 'error');
+                })
+                .finally(() => {
+                    changePasswordBtn.disabled = false;
+                    changePasswordBtn.classList.remove('btn-loading');
+                });
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                fetch('/user/userlogout')
+                    .then(() => {
+                        window.location.href = '/user/login';
+                    })
+                    .catch(error => {
+                        console.error('退出登录失败:', error);
+                        window.location.href = '/user/login';
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

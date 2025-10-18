@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .login-page {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            overflow: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 20s linear infinite;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .login-container {
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            max-width: 420px;
+            width: 90%;
+        }
+        .password-input-wrapper {
+            position: relative;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+        .password-toggle:hover {
+            color: var(--primary-color);
+            background: var(--bg-tertiary);
+        }
+        .login-logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto var(--space-lg);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: var(--font-size-2xl);
+            font-weight: bold;
+        }
+        .loading-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .btn-loading .loading-spinner {
+            display: inline-block;
+        }
+        .btn-loading .btn-text {
+            display: none;
+        }
+        .form-footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: var(--space-lg);
+            padding-top: var(--space-lg);
+            border-top: 1px solid var(--border-color);
+            font-size: var(--font-size-sm);
+        }
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: var(--space-md);
+            font-size: var(--font-size-sm);
+        }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+        }
+        .alert {
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            margin-bottom: var(--space-lg);
+            border: 1px solid;
+            font-size: var(--font-size-sm);
+            display: none;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+        .qr-section {
+            text-align: center;
+            padding: var(--space-lg) 0;
+            border-top: 1px solid var(--border-color);
+            margin-top: var(--space-lg);
+        }
+        .qr-button {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-lg);
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            transition: all 0.2s ease;
+        }
+        .qr-button:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: var(--bg-tertiary);
+        }
+        @media (max-width: 480px) {
+            .login-container {
+                padding: var(--space-xl);
+                margin: var(--space-md);
+            }
+            .form-footer {
+                flex-direction: column;
+                gap: var(--space-sm);
+            }
+            .form-options {
+                flex-direction: column;
+                gap: var(--space-sm);
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-logo">CS</div>
+            <h1 class="login-title">用户登录</h1>
+            <p class="login-subtitle">欢迎回来，请登录您的账户</p>
+        </div>
+
+        <div id="alert" class="alert alert-error"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username" class="form-label">用户名</label>
+                <div style="position: relative;">
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-input"
+                        style="padding-left: 40px;"
+                        placeholder="请输入用户名"
+                        autocomplete="username"
+                        required
+                    >
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                        👤
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">密码</label>
+                <div class="password-input-wrapper">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
+                        style="padding-left: 40px; padding-right: 40px;"
+                        placeholder="请输入密码"
+                        autocomplete="current-password"
+                        required
+                    >
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);">
+                        🔒
+                    </span>
+                    <button type="button" class="password-toggle" id="togglePassword" tabindex="-1">
+                        👁️
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-options">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="rememberMe" name="rememberMe">
+                    <label for="rememberMe">记住我</label>
+                </div>
+                <a href="#" class="text-secondary" style="text-decoration: none; font-size: var(--font-size-sm);">忘记密码？</a>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginBtn">
+                <span class="loading-spinner"></span>
+                <span class="btn-text">登录</span>
+            </button>
+
+            <div class="form-footer">
+                <span style="color: var(--text-secondary);">还没有账户？</span>
+                <a href="/register" class="text-primary" style="text-decoration: none; font-weight: 500;">立即注册</a>
+            </div>
+        </form>
+
+        <div class="qr-section">
+            <a href="/user/qrcode" class="qr-button">
+                <span>📱</span>
+                <span>二维码登录</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // 密码显示/隐藏切换
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.textContent = type === 'password' ? '👁️' : '🙈';
+        });
+
+        // 显示/隐藏提示信息
+        function showAlert(message, type = 'error') {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <div style="display: flex; align-items: center; gap: ${getComputedStyle(document.documentElement).getPropertyValue('--space-sm')};">
+                    <span>${type === 'error' ? '❌' : '✅'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            alert.style.display = 'block';
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                    alert.style.opacity = '1';
+                }, 300);
+            }, 3000);
+        }
+
+        // 表单提交处理
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const loginBtn = document.getElementById('loginBtn');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            // 验证输入
+            if (!username) {
+                showAlert('请输入用户名', 'error');
+                document.getElementById('username').focus();
+                return;
+            }
+
+            if (!password) {
+                showAlert('请输入密码', 'error');
+                document.getElementById('password').focus();
+                return;
+            }
+
+            // 显示加载状态
+            loginBtn.disabled = true;
+            loginBtn.classList.add('btn-loading');
+
+            try {
+                const response = await fetch('/user/login_act', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                let data;
+                const responseText = await response.text();
+
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(responseText || '服务器响应错误');
+                }
+
+                if (data.success) {
+                    showAlert('登录成功！正在跳转...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/clientarea';
+                    }, 1500);
+                } else {
+                    showAlert(data.message || '用户名或密码错误', 'error');
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                showAlert(error.message || '网络错误，请稍后重试', 'error');
+            } finally {
+                // 恢复按钮状态
+                loginBtn.disabled = false;
+                loginBtn.classList.remove('btn-loading');
+            }
+        });
+
+        // 记住我功能
+        document.getElementById('rememberMe').addEventListener('change', function() {
+            if (this.checked) {
+                localStorage.setItem('rememberUsername', document.getElementById('username').value);
+            } else {
+                localStorage.removeItem('rememberUsername');
+            }
+        });
+
+        // 页面加载时检查记住的用户名
+        window.addEventListener('load', function() {
+            const savedUsername = localStorage.getItem('rememberUsername');
+            if (savedUsername) {
+                document.getElementById('username').value = savedUsername;
+                document.getElementById('rememberMe').checked = true;
+            }
+            document.getElementById('username').focus();
+        });
+
+        // 回车键提交
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && event.ctrlKey) {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // 实时输入验证
+        document.getElementById('username').addEventListener('input', function() {
+            this.value = this.value.trim();
+        });
+    </script>
+</body>
+</html>

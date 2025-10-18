@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统信息 - CaddySingleFile</title>
+    <link rel="stylesheet" href="/static/css/modern-enterprise.css">
+    <link rel="stylesheet" href="/static/css/mobile-optimized.css">
+    <script src="/static/js/js-yaml.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .sysinfo-page {
+            background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .sysinfo-page::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 35s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: white;
+        }
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .page-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .nav-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .refresh-btn {
+            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+            margin: 0 auto 2rem;
+        }
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .info-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .info-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f3f4f6;
+        }
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+        }
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0;
+        }
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .action-btn {
+            background: white;
+            border: 2px solid #e5e7eb;
+            color: #374151;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        .action-btn:hover {
+            border-color: #7c3aed;
+            color: #7c3aed;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.15);
+        }
+        .action-btn.danger:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .progress-item {
+            margin-bottom: 1.5rem;
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        .progress-bar-container {
+            height: 12px;
+            background: #f3f4f6;
+            border-radius: 9999px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            border-radius: 9999px;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        .progress-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+            border-radius: 9999px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        .info-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f3f4f6;
+        }
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+        }
+        .close-btn:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        .form-textarea {
+            min-height: 300px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+        }
+        .btn-secondary {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            color: #374151;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background: #e5e7eb;
+            transform: translateY(-2px);
+        }
+        .config-help {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .config-help h4 {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            color: #374151;
+        }
+        .config-help ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+        .config-help li {
+            margin-bottom: 0.5rem;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+        .loading-overlay.show {
+            display: flex;
+        }
+        .loading-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #f3f4f6;
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+            .page-title {
+                font-size: 2rem;
+            }
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+            .nav-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body class="sysinfo-page">
+    <div class="main-container">
+        <div class="page-header">
+            <h1 class="page-title">
+                <i class="fas fa-server"></i> 系统信息
+            </h1>
+            <p class="page-subtitle">
+                监控服务器状态、管理系统配置和执行维护操作
+            </p>
+        </div>
+
+        <div class="nav-actions">
+            <a href="/admin/userlist" class="nav-btn">
+                <i class="fas fa-arrow-left"></i>
+                返回用户列表
+            </a>
+            <a href="/admin/userconfig" class="nav-btn">
+                <i class="fas fa-chart-line"></i>
+                在线数据
+            </a>
+        </div>
+
+        <button id="fetchSysInfo" class="refresh-btn">
+            <i class="fas fa-sync-alt"></i>
+            重新解析服务器信息
+        </button>
+
+        <div class="content-grid">
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <h3 class="card-title">基本信息</h3>
+                </div>
+                <div id="sysInfoDisplay" style="display: none;">
+                    <div class="info-item">
+                        <span class="info-label">端口号</span>
+                        <span class="info-value" id="portInfo">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">网址</span>
+                        <span class="info-value" id="domainInfo">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h3 class="card-title">系统控制</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="restartServer" class="action-btn danger" style="display: none;">
+                        <i class="fas fa-power-off"></i>
+                        重启服务器
+                    </button>
+                    <button id="restartCaddy" class="action-btn">
+                        <i class="fas fa-redo"></i>
+                        重启Caddy
+                    </button>
+                    <button id="saveTraffic" class="action-btn">
+                        <i class="fas fa-save"></i>
+                        保存内存数据
+                    </button>
+                    <button id="reloadConfig" class="action-btn">
+                        <i class="fas fa-sync"></i>
+                        重载配置
+                    </button>
+                    <button id="upgradeSystem" class="action-btn danger">
+                        <i class="fas fa-download"></i>
+                        升级系统
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-sliders-h"></i>
+                </div>
+                <h3 class="card-title">配置管理</h3>
+            </div>
+            <div class="action-buttons">
+                <button id="modifyApi" class="action-btn">
+                    <i class="fas fa-key"></i>
+                    修改API
+                </button>
+                <button id="editConfig" class="action-btn">
+                    <i class="fas fa-edit"></i>
+                    修改配置
+                </button>
+            </div>
+        </div>
+
+        <div class="info-card" id="serviceAreaMetrics" style="display: none;">
+            <div class="card-header">
+                <div class="card-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h3 class="card-title">服务器状态</h3>
+            </div>
+            <div id="serverMetrics">
+                <!-- 动态生成服务器指标 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- API编辑模态框 -->
+    <div id="apiModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-key"></i> 修改API配置
+                </h3>
+                <button class="close-btn" onclick="closeApiModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="veidApiKeyForm">
+                <div class="form-group">
+                    <label class="form-label" for="veid">
+                        <i class="fas fa-id-card"></i> VEID
+                    </label>
+                    <input type="number" id="veid" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="apiKey">
+                        <i class="fas fa-key"></i> API Key
+                    </label>
+                    <input type="text" id="apiKey" class="form-input" required>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="closeApiModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 配置编辑模态框 -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-edit"></i> 修改系统配置
+                </h3>
+                <button class="close-btn" onclick="closeConfigModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="configEditor">
+                    <i class="fas fa-code"></i> YAML配置
+                </label>
+                <textarea id="configEditor" class="form-input form-textarea"></textarea>
+            </div>
+            <div class="config-help">
+                <h4><i class="fas fa-info-circle"></i> 配置项说明</h4>
+                <ul>
+                    <li><strong>trafficThreshold:</strong> 定义了超过多少字节的缓存才进行动作记录</li>
+                    <li><strong>accessLogSize:</strong> 记录的最大动作数</li>
+                    <li><strong>enableAccessLog:</strong> 是否启用动作记录</li>
+                    <li><strong>maxTraffic:</strong> 用户列表页面总流量进度条的最大值</li>
+                    <li><strong>dailyTraffic:</strong> 用户列表页面实时流量进度条的最大值</li>
+                    <li><strong>IPExpiryDuration:</strong> 以秒为单位的最大活跃时间</li>
+                    <li><strong>userTrafficCheckLevel:</strong> 用户流量限额检查的精细程度 (1=每天, 2=N小时, 3=每次链接, 4=每个数据包)</li>
+                    <li><strong>TaskExecutionHours:</strong> 当UserTrafficCheckLevel为2的时候生效，表示多少小时内检查一次流量 *重启生效</li>
+                    <li><strong>TrafficResetHour:</strong> 表示北京时间每天重置流量统计的钟数用整数(0-23)表示 *重启生效</li>
+                    <li><strong>MonthlyRestartDay:</strong> 每月重启的日期天数 (跟服务器重置流量日期对应为服务器时区，设为-1会强制从服务器更新每新日期及时间)</li>
+                </ul>
+            </div>
+            <div class="button-group">
+                <button id="saveConfig" class="btn-primary" style="display: none;">
+                    <i class="fas fa-save"></i> 保存配置
+                </button>
+                <button type="button" class="btn-secondary" onclick="closeConfigModal()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">正在处理，请稍候...</div>
+        </div>
+    </div>
+
+    <script>
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type}`;
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i> ${message}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                min-width: 300px;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                border: 1px solid;
+                animation: slideIn 0.3s ease;
+            `;
+
+            if (type === 'success') {
+                notification.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                notification.style.borderColor = '#10b981';
+                notification.style.color = '#10b981';
+            } else {
+                notification.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                notification.style.borderColor = '#ef4444';
+                notification.style.color = '#ef4444';
+            }
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // 创建进度条
+        function createProgressBar(label, used, total, unit) {
+            const percentage = (used / total) * 100;
+            const remaining = total - used;
+            return `
+                <div class="progress-item">
+                    <div class="progress-label">
+                        <span>${label}</span>
+                        <span>${percentage.toFixed(1)}% (${used.toFixed(2)}${unit} / ${total.toFixed(2)}${unit})</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" style="width: ${percentage}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 格式化日期
+        function formatDate(timestamp) {
+            const date = new Date(timestamp * 1000);
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            return date.toISOString().split('T')[0];
+        }
+
+        // 加载服务器信息
+        function loadServerInfo(data) {
+            const serverMetrics = document.getElementById('serverMetrics');
+
+            const veDiskQuotaGB = parseFloat(data.ve_disk_quota_gb);
+            const veUsedDiskSpaceGB = data.ve_used_disk_space_b / (1024 ** 3);
+            const planRamMB = data.plan_ram / (1024 ** 2);
+            const memAvailableMB = data.mem_available_kb / 1024;
+            const swapTotalMB = data.swap_total_kb / 1024;
+            const swapAvailableMB = data.swap_available_kb / 1024;
+            const planMonthlyDataGB = data.plan_monthly_data / (1024 ** 3);
+            const dataCounterGB = data.data_counter / (1024 ** 3);
+
+            serverMetrics.innerHTML = `
+                <div class="info-item">
+                    <span class="info-label">计划名称</span>
+                    <span class="info-value">${data.plan || 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">数据中心</span>
+                    <span class="info-value">${data.node_datacenter || 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">操作系统</span>
+                    <span class="info-value">${data.os || 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">虚拟机状态</span>
+                    <span class="info-value">${data.ve_status || 'N/A'}</span>
+                </div>
+                ${createProgressBar('磁盘使用', veUsedDiskSpaceGB, veDiskQuotaGB, 'GB')}
+                <div class="info-item">
+                    <span class="info-label">系统负载平均值</span>
+                    <span class="info-value">${data.load_average || 'N/A'}</span>
+                </div>
+                ${createProgressBar('内存使用', planRamMB - memAvailableMB, planRamMB, 'MB')}
+                ${createProgressBar('交换空间使用', swapTotalMB - swapAvailableMB, swapTotalMB, 'MB')}
+                ${createProgressBar('每月数据使用', dataCounterGB, planMonthlyDataGB, 'GB')}
+                <div class="info-item">
+                    <span class="info-label">数据下次重置时间</span>
+                    <span class="info-value">${formatDate(data.data_next_reset) || 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">是否被暂停</span>
+                    <span class="info-value">${data.suspended !== undefined ? data.suspended : 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">策略违规</span>
+                    <span class="info-value">${data.policy_violation !== undefined ? data.policy_violation : 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">暂停次数</span>
+                    <span class="info-value">${data.suspension_count !== null ? data.suspension_count : 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">总滥用点数</span>
+                    <span class="info-value">${data.total_abuse_points !== undefined ? data.total_abuse_points : 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">最大滥用点数</span>
+                    <span class="info-value">${data.max_abuse_points !== undefined ? data.max_abuse_points : 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">免费IP替换间隔</span>
+                    <span class="info-value">${data.free_ip_replacement_interval !== undefined ? data.free_ip_replacement_interval : 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">错误代码</span>
+                    <span class="info-value">${data.error !== undefined ? data.error : 'N/A'}</span>
+                </div>
+            `;
+        }
+
+        // 关闭API模态框
+        function closeApiModal() {
+            document.getElementById('apiModal').classList.remove('show');
+        }
+
+        // 关闭配置模态框
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.remove('show');
+            document.getElementById('configEditor').value = '';
+            document.getElementById('saveConfig').style.display = 'none';
+        }
+
+        // 重新获取系统信息
+        document.getElementById('fetchSysInfo').addEventListener('click', function() {
+            showLoading();
+            fetch('/admin/update_sysinfo')
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        const sysInfoDisplay = document.getElementById('sysInfoDisplay');
+                        document.getElementById('portInfo').textContent = data.port;
+                        document.getElementById('domainInfo').textContent = data.domain;
+                        sysInfoDisplay.style.display = 'block';
+                        showNotification('系统信息更新成功');
+                    } else {
+                        showNotification(`更新失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification(`更新失败: ${error.message}`, 'error');
+                });
+        });
+
+        // 重启服务器
+        document.getElementById('restartServer').addEventListener('click', function() {
+            const userInput = prompt('请输入 "YES" 以确认重启服务器:');
+            if (userInput === 'YES') {
+                showLoading();
+                fetch('/admin/restart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        showNotification('服务器正在重启');
+                    } else {
+                        showNotification(`重启失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification('重启请求失败', 'error');
+                });
+            }
+        });
+
+        // 重启Caddy
+        document.getElementById('restartCaddy').addEventListener('click', function() {
+            const userInput = prompt('请输入 "YES" 以确认重启Caddy:');
+            if (userInput === 'YES') {
+                showLoading();
+                fetch('/admin/restartcaddy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        showNotification('Caddy重启成功');
+                    } else {
+                        showNotification(`重启失败: ${data.message}\n详情: ${data.details || '无'}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification('重启请求失败', 'error');
+                });
+            }
+        });
+
+        // 保存流量数据
+        document.getElementById('saveTraffic').addEventListener('click', function() {
+            const userInput = prompt('请输入 "YES" 以确认保存内存数据:');
+            if (userInput === 'YES') {
+                showLoading();
+                fetch('/admin/savetraffic', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        showNotification('保存内存数据成功');
+                    } else {
+                        showNotification(`保存失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification('保存请求失败', 'error');
+                });
+            }
+        });
+
+        // 重载配置
+        document.getElementById('reloadConfig').addEventListener('click', function() {
+            const userInput = prompt('请输入 "YES" 以确认重载配置:');
+            if (userInput === 'YES') {
+                showLoading();
+                fetch('/admin/reloadconfig', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        showNotification('配置重载成功');
+                    } else {
+                        showNotification(`重载失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification('重载请求失败', 'error');
+                });
+            }
+        });
+
+        // 升级系统
+        document.getElementById('upgradeSystem').addEventListener('click', function() {
+            const userInput = prompt('请输入 "YES" 以确认升级系统:');
+            if (userInput === 'YES') {
+                showLoading();
+                fetch('/admin/upgrade', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        showNotification('系统升级已启动');
+                    } else {
+                        showNotification(`升级失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification('升级请求失败', 'error');
+                });
+            }
+        });
+
+        // 修改API
+        document.getElementById('modifyApi').addEventListener('click', function() {
+            document.getElementById('veid').value = '';
+            document.getElementById('apiKey').value = '';
+            document.getElementById('apiModal').classList.add('show');
+        });
+
+        // 编辑配置
+        document.getElementById('editConfig').addEventListener('click', function() {
+            showLoading();
+            fetch('/admin/loadconfig')
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if(data.success) {
+                        const yamlConfig = jsyaml.dump(JSON.parse(data.config));
+                        document.getElementById('configEditor').value = yamlConfig;
+                        document.getElementById('saveConfig').style.display = 'block';
+                        document.getElementById('configModal').classList.add('show');
+                    } else {
+                        showNotification(`加载配置失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showNotification('加载配置请求失败', 'error');
+                });
+        });
+
+        // 保存配置
+        document.getElementById('saveConfig').addEventListener('click', function() {
+            showLoading();
+            const yamlConfig = document.getElementById('configEditor').value;
+            const configObject = jsyaml.load(yamlConfig);
+            const jsonConfig = JSON.stringify(configObject);
+
+            fetch('/admin/updateconfig', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: jsonConfig
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if(data.success) {
+                    showNotification('配置保存成功并已重载');
+                    closeConfigModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification(`保存失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showNotification('保存配置请求失败', 'error');
+            });
+        });
+
+        // 保存API表单
+        document.getElementById('veidApiKeyForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const veid = parseInt(document.getElementById('veid').value);
+            const apiKey = document.getElementById('apiKey').value;
+
+            showLoading();
+            fetch('/admin/saveapikey', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ veid, apiKey })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    showNotification('API配置保存成功');
+                    closeApiModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification(`保存失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showNotification('保存请求失败', 'error');
+            });
+        });
+
+        // 页面加载时获取系统信息
+        document.addEventListener('DOMContentLoaded', function() {
+            showLoading();
+
+            // 获取基础系统信息
+            fetch('/admin/get_sysinfo')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const sysInfoDisplay = document.getElementById('sysInfoDisplay');
+                        document.getElementById('portInfo').textContent = data.port;
+                        document.getElementById('domainInfo').textContent = data.domain;
+                        sysInfoDisplay.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching system info:', error);
+                });
+
+            // 获取服务器指标
+            fetch('/admin/getServiceAreaMetrics')
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        loadServerInfo(data.message);
+                        document.getElementById('serviceAreaMetrics').style.display = 'block';
+                        document.getElementById('restartServer').style.display = 'block';
+                    } else {
+                        showNotification(data.message, 'error');
+                        document.getElementById('apiModal').classList.add('show');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error fetching service area metrics:', error);
+                });
+        });
+    </script>
+</body>
+</html>
